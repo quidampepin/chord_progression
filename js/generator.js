@@ -466,15 +466,35 @@
     for (const a in MATRIX[mode]) for (const b in MATRIX[mode][a]) s.add(b);
     return [...s];
   }
-  // Harmonic function. In Phrygian modes ♭II is the chord that resolves home, so it acts as the dominant.
-  function fnOf(ch, mode) {
-    if (ch.role) return 'D';
-    const r = ch.rootPc;
-    if (r === 0 || r === 9 || r === 4 || r === 3) return 'T';
-    if (r === 7 || r === 11 || r === 10) return 'D';
-    if (r === 1 && (mode === 'phrygian' || mode === 'phrygianDom')) return 'D';
-    return 'PD';
+  /* Two different things, kept apart on purpose:
+   *  - name: what the chord IS — its scale degree (tonic, supertonic … subdominant, dominant, subtonic…)
+   *  - fn:   what it DOES — tonic (home), predominant (moving away), dominant (pulling home)
+   * weak = a "modal" dominant: it leads home but has no leading tone (♭VII, minor v, Phrygian ♭II),
+   * so its pull is much softer than V's.
+   */
+  function fnInfo(ch, mode, next) {
+    if (ch.role === 'secondary') return { fn: 'D', weak: false, name: 'secondary' };
+    if (ch.role === 'tritone') return { fn: 'D', weak: false, name: 'tritone' };
+    const fam = Q[T.harm(ch)].fam;
+    const phryg = mode === 'phrygian' || mode === 'phrygianDom';
+    switch (ch.rootPc) {
+      case 0: return { fn: 'T', weak: false, name: 'tonic' };
+      case 1: return phryg ? { fn: 'D', weak: true, name: 'phrygianII' } : { fn: 'PD', weak: false, name: 'neapolitan' };
+      case 2: return { fn: 'PD', weak: false, name: 'supertonic' };
+      case 3: return { fn: 'T', weak: false, name: 'mediant' };
+      case 4: return { fn: 'T', weak: false, name: 'mediant' };
+      case 5: return { fn: 'PD', weak: false, name: 'subdominant' };
+      case 6: return ['dim', 'dim7', 'hdim'].includes(fam) ? { fn: 'D', weak: false, name: 'passingDim' } : { fn: 'PD', weak: false, name: 'raisedFour' };
+      case 7: return fam === 'min' ? { fn: 'D', weak: true, name: 'minorDominant' } : { fn: 'D', weak: false, name: 'dominant' };
+      case 8: return { fn: 'PD', weak: false, name: 'submediant' };
+      case 9: return { fn: 'T', weak: false, name: 'submediant' };
+      // ♭VII → IV is the subdominant of the subdominant (double plagal), so it moves away rather than pulling home.
+      case 10: return next && next.rootPc === 5 ? { fn: 'PD', weak: false, name: 'subtonic' } : { fn: 'D', weak: true, name: 'subtonic' };
+      case 11: return { fn: 'D', weak: false, name: 'leadingTone' };
+    }
+    return { fn: 'PD', weak: false, name: 'supertonic' };
   }
+  const fnOf = (ch, mode) => fnInfo(ch, mode).fn;
   const tokFn = (tok, mode) => fnOf(T.parseRoman(tok), mode);
 
   /* ---------- functional walk ---------- */
@@ -874,17 +894,20 @@
       if (step === 5) fifths++;
       const aFam = Q[T.harm(a)].fam;
       if (a.rootPc === 7 && aFam !== 'min' && !a.role && b.rootPc === 0) items.push({ k: 'authentic', i, j });
-      else if (a.rootPc === 7 && !a.role && (b.rootPc === 9 || b.rootPc === 8)) items.push({ k: 'deceptive', i, j });
+      else if (a.rootPc === 7 && !a.role && aFam !== 'min' && (b.rootPc === 9 || b.rootPc === 8)) items.push({ k: 'deceptive', i, j });
       else if (a.rootPc === 5 && b.rootPc === 0) items.push({ k: aFam === 'min' && key.mode !== 'minor' && key.mode !== 'dorian' ? 'minorPlagal' : 'plagal', i, j });
-      else if (a.rootPc === 10 && b.rootPc === 0) items.push({ k: 'backdoor', i, j });
+      // ♭VII → I: in a major-tonic context it's the gospel/rock "backdoor"; onto a minor tonic it's the Aeolian cadence.
+      else if (a.rootPc === 10 && b.rootPc === 0) items.push({ k: Q[T.harm(b)].fam === 'min' ? 'aeolianCad' : 'backdoor', i, j });
       else if (a.rootPc === 1 && b.rootPc === 0 && !a.role) items.push({ k: 'phrygianCad', i, j });
       if (j > i && j + 1 < n && a.rootPc === 2 && b.rootPc === 7 && ch[j + 1].rootPc === 0) items.push({ k: 'iiVI', i, j });
+      if (j > i && j + 1 < n && a.rootPc === 10 && b.rootPc === 5 && ch[j + 1].rootPc === 0) items.push({ k: 'doublePlagal', i, j });
     }
     const roots = ch.map((c) => c.rootPc).join(',');
     if (/(^|,)0,10,8,7(,|$)/.test(roots)) items.push({ k: 'andalusian' });
     if (pairs.length >= 3 && fifths / pairs.length >= 0.5) items.push({ k: 'fifths' });
     const last = ch[n - 1];
-    if (ending === 'loop' && fnOf(last, key.mode) === 'D') items.push({ k: 'turnaround', i: n - 1 });
+    const lastInfo = fnInfo(last, key.mode, ending === 'loop' ? ch[0] : null);
+    if (ending === 'loop' && lastInfo.fn === 'D') items.push({ k: lastInfo.weak ? 'turnaroundModal' : 'turnaround', i: n - 1 });
     // Keep it readable: one item per kind for cadences, max 6.
     const seen = new Set();
     const out = items.filter((it) => {
@@ -896,5 +919,5 @@
     return out.slice(0, 6);
   }
 
-  C.gen = { STYLES, RHYTHMS, generate, reroll, recolor, analyze, fnOf, rng, TONIC, MATRIX };
+  C.gen = { STYLES, RHYTHMS, generate, reroll, recolor, analyze, fnOf, fnInfo, rng, TONIC, MATRIX };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

@@ -320,7 +320,8 @@
 
   function chordCard(i, canLock, half) {
     const c = prog.chords[i];
-    const fn = G.fnOf(c, state.mode);
+    const info = G.fnInfo(c, state.mode, nextChord(i));
+    const fn = info.fn;
     const g = derived.fret && derived.fret[i];
     const visual = g
       ? `<div class="gwrap">${D.guitar(g.shapes[g.chosen], derived.realized[i], { aria: symbolText(i) })}
@@ -331,11 +332,11 @@
            </div>` : ''}</div>`
       : miniKeyboard(i);
     return `
-      <article class="chord fn-${fn}${half ? ' half' : ''}${i === selected ? ' is-selected' : ''}${c.locked ? ' is-locked' : ''}" data-i="${i}">
+      <article class="chord fn-${fn}${info.weak ? ' weak' : ''}${half ? ' half' : ''}${i === selected ? ' is-selected' : ''}${c.locked ? ' is-locked' : ''}" data-i="${i}">
         <button type="button" class="chord-main" data-act="select" data-i="${i}" aria-label="${esc(symbolText(i))}">
           <span class="sym">${symbolHTML(i)}</span>
           <span class="rn">${esc(T.romanText(c))}</span>
-          <span class="fn-tag" title="${esc(tr('fn.' + fn))}">${esc(tr('fn.' + fn))}</span>
+          <span class="fn-tag" title="${esc(fnTitle(info))}">${esc(tr('deg.' + info.name))}</span>
         </button>
         ${visual}
         <div class="chord-tools">
@@ -345,8 +346,14 @@
       </article>`;
   }
 
+  // A chord's job can depend on where it goes next (♭VII → IV is not a dominant).
+  function nextChord(i) { return prog.chords[i + 1] || (state.ending === 'loop' ? prog.chords[0] : null); }
+  // Colour = function (what the chord does); the tag text = scale degree (what the chord is).
+  function fnTitle(info) { return tr('fnLong.' + info.fn) + (info.weak ? ' — ' + tr('fnWeak') : ''); }
   function renderLegend() {
-    $('#legend').innerHTML = ['T', 'PD', 'D'].map((f) => `<span class="lg fn-${f}"><i></i>${esc(tr('fn.' + f))}</span>`).join('')
+    $('#legend').innerHTML = `<span class="lg-intro">${esc(tr('legendIntro'))}</span>`
+      + ['T', 'PD', 'D'].map((f) => `<span class="lg fn-${f}"><i></i>${esc(tr('fn.' + f))}</span>`).join('')
+      + `<span class="lg fn-D weak"><i></i>${esc(tr('legendWeak'))}</span>`
       + `<span class="lg lg-root"><i></i>${state.lang === 'fr' ? 'Fondamentale (R)' : 'Root (R)'}</span>`;
   }
 
@@ -355,7 +362,8 @@
     const c = prog.chords[i];
     const r = derived.realized[i];
     const g = derived.fret && derived.fret[i];
-    const fn = G.fnOf(c, state.mode);
+    const info = G.fnInfo(c, state.mode, nextChord(i));
+    const fn = info.fn;
     // The keyboard shows exactly the notes the current instrument plays.
     const played = notesFor(i);
     const marks = new Map();
@@ -364,11 +372,11 @@
     const shapes = g ? g.shapes.map((s, k) => `<button type="button" class="alt${k === g.chosen ? ' on' : ''}" data-act="shape" data-i="${i}" data-k="${k}" aria-pressed="${k === g.chosen}" title="${esc(tr('shapeOf', { a: k + 1, b: g.shapes.length }))}">${D.guitar(s, r, { labels: false })}<span>${s.frets.map((f) => (f < 0 ? '×' : f)).join(' ')}</span></button>`).join('') : '';
     const lo = Math.min(36, Math.floor(Math.min(...played) / 12) * 12), hi = Math.max(84, Math.max(...played));
     $('#focus').innerHTML = `
-      <div class="focus-head fn-${fn}">
+      <div class="focus-head fn-${fn}${info.weak ? ' weak' : ''}">
         <div class="focus-sym">${symbolHTML(i)}</div>
         <div class="focus-meta">
-          <span class="rn big">${esc(T.romanText(c))}</span>
-          <span class="fn-tag">${esc(tr('fn.' + fn))}</span>
+          <span class="rn big">${esc(T.romanText(c))} · ${esc(tr('deg.' + info.name))}</span>
+          <span class="fn-tag">${esc(fnTitle(info))}</span>
         </div>
         <ul class="tones" aria-label="${esc(tr('notes'))}">${tones}</ul>
       </div>
@@ -390,7 +398,7 @@
   function renderAnalysis() {
     const k = derived.key;
     const items = G.analyze(prog, k, state.ending);
-    $('#flow').innerHTML = prog.chords.map((c, i) => { const f = G.fnOf(c, state.mode); return `<span class="flow-step fn-${f}" title="${esc(tr('fn.' + f))}">${esc(tr('fnShort.' + f))}</span>`; }).join('<span class="flow-arrow" aria-hidden="true">→</span>');
+    $('#flow').innerHTML = prog.chords.map((c, i) => { const inf = G.fnInfo(c, state.mode, nextChord(i)); return `<span class="flow-step fn-${inf.fn}${inf.weak ? ' weak' : ''}" title="${esc(fnTitle(inf))}">${esc(tr('fnShort.' + inf.fn))}</span>`; }).join('<span class="flow-arrow" aria-hidden="true">→</span>');
     // Leading tone = the major 3rd; power chords have none, so spell the chord they stand for.
     const lt = (i) => { const t = T.realize(Object.assign({}, prog.chords[i], { quality: T.harm(prog.chords[i]) }), k).tones.find((x) => x.label === '3'); return t ? nn(t) : ''; };
     const lines = items.map((it) => {

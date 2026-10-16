@@ -193,6 +193,9 @@ kbd {
 .fn-PD { --fn: var(--fn-pd); }
 .fn-D { --fn: var(--fn-d); }
 .chord.is-selected { background: var(--sel); }
+.chord.weak .chord-main { border-bottom-style: dashed; }
+.focus-head.weak { border-bottom-style: dashed; }
+.flow-step.weak { border-style: dashed; }
 .chord.is-playing { box-shadow: inset 0 0 0 2px var(--accent); }
 .chord.is-locked { background: repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--accent) 10%, transparent) 7px 8px); }
 .chord.is-locked.is-selected { background-color: var(--sel); }
@@ -259,6 +262,8 @@ kbd {
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: var(--step--1); color: var(--muted); }
 .lg { display: inline-flex; align-items: center; gap: 6px; }
 .lg i { width: 14px; height: 3px; border-radius: 2px; background: var(--fn); display: inline-block; }
+.lg.weak i { height: 0; background: none; border-top: 3px dashed var(--fn); border-radius: 0; }
+.lg-intro { font-weight: 600; }
 .lg-root i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 
 /* ---------- transport ---------- */
@@ -318,7 +323,7 @@ kbd {
 .analysis li { padding-left: 14px; position: relative; font-size: var(--step--1); line-height: 1.55; }
 .analysis li::before { content: ""; position: absolute; left: 0; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .cref { font-family: var(--f-display); font-weight: 700; }
-.fn-help { margin: 14px 0 0; font-size: 0.75rem; color: var(--muted); }
+.fn-help { margin: 14px 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--muted); }
 
 .history ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .history button { width: 100%; text-align: left; border: 1px solid var(--line); background: var(--raised); border-radius: 8px; padding: 8px 10px; display: grid; gap: 2px; }
