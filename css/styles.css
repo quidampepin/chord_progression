@@ -235,6 +235,14 @@ kbd {
 .icon-btn:hover { border-color: var(--line); color: var(--ink); background: var(--surface); }
 .icon-btn.on { color: var(--accent); }
 .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.simile {
+  flex: 1; align-self: stretch; display: grid; place-items: center; align-content: center; gap: 6px;
+  border: 0; background: transparent; color: var(--ink); border-radius: var(--r); min-height: 120px;
+}
+.simile svg { width: 44px; height: 44px; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; fill: currentColor; }
+.simile-name { font: 500 0.6875rem/1 var(--f-mono); color: var(--muted); }
+.simile:hover { background: var(--surface); }
+.simile.is-playing { box-shadow: inset 0 0 0 2px var(--accent); }
 .chord-tools { display: flex; gap: 2px; justify-content: center; min-height: 28px; }
 
 .mini-kbd { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px; width: 100%; max-width: 170px; }
@@ -292,6 +300,7 @@ kbd {
 .tone-int.root { color: var(--accent); }
 
 .focus-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 22px; }
+.focus-grid.solo { grid-template-columns: minmax(0, 1fr); }
 .big-g .gbox { max-width: 190px; margin: 0 auto 10px; }
 .alts { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
 .alt { border: 1px solid var(--line); background: var(--raised); border-radius: 8px; padding: 4px 2px 3px; display: grid; justify-items: center; gap: 1px; }

@@ -44,6 +44,13 @@
         </div>
       </div>
       <div class="field field-seg">
+        <span data-i18n="rhythm"></span>
+        <div class="seg seg-wide" role="group" id="rhythm">
+          <button type="button" data-rhythm="varied" data-i18n="rhythmVaried"></button>
+          <button type="button" data-rhythm="steady" data-i18n="rhythmSteady"></button>
+        </div>
+      </div>
+      <div class="field field-seg">
         <span data-i18n="ending"></span>
         <div class="seg seg-wide" role="group" id="ending">
           <button type="button" data-ending="loop" data-i18n="endLoop"></button>
@@ -66,10 +73,12 @@
         <p id="source" class="source"></p>
       </div>
       <div class="view-switch">
-        <span class="mini-label" data-i18n="show"></span>
+        <span class="mini-label" data-i18n="instrument"></span>
         <div class="seg" role="group" id="view">
-          <button type="button" data-view="guitar" data-i18n="guitar"></button>
-          <button type="button" data-view="piano" data-i18n="piano"></button>
+          <button type="button" data-inst="guitar" data-i18n="sounds.guitar"></button>
+          <button type="button" data-inst="ukulele" data-i18n="sounds.ukulele"></button>
+          <button type="button" data-inst="piano" data-i18n="sounds.piano"></button>
+          <button type="button" data-inst="pad" data-i18n="sounds.pad"></button>
         </div>
         <label class="field field-inline" id="tuning-wrap"><span class="sr" data-i18n="tuning"></span><select id="tuning"></select></label>
         <label class="field field-inline" id="piano-style-wrap"><span class="sr" data-i18n="voicing"></span><select id="piano-style"></select></label>
@@ -86,7 +95,6 @@
       <span id="play-label"></span>
     </button>
     <label class="field field-inline tempo"><span data-i18n="tempo"></span><input type="range" id="tempo" min="50" max="180" step="1"><output id="tempo-out"></output></label>
-    <label class="field field-inline"><span data-i18n="sound"></span><select id="instrument"></select></label>
     <label class="field field-inline"><span data-i18n="pattern"></span><select id="pattern"></select></label>
     <label class="check"><input type="checkbox" id="repeat"><span data-i18n="repeat"></span></label>
     <div class="transport-actions">

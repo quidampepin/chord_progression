@@ -68,23 +68,25 @@
   }
 
   // Karplus–Strong: a noise burst circulating in a short, damped delay line.
-  function ksBuffer(m) {
-    if (ksCache.has(m)) return ksCache.get(m);
+  function ksBuffer(m, nylon) {
+    const ck = m + (nylon ? 'n' : '');
+    if (ksCache.has(ck)) return ksCache.get(ck);
     const sr = ctx.sampleRate, f = hz(m);
     const N = Math.max(2, Math.floor(sr / f - 0.5));
     const len = Math.floor(sr * 2.6);
     const buf = ctx.createBuffer(1, len, sr);
     const d = buf.getChannelData(0);
-    const decay = 0.996 - Math.max(0, m - 60) * 0.0002;
+    // nylon (ukulele) strings die away faster than steel
+    const decay = (nylon ? 0.9935 : 0.996) - Math.max(0, m - 60) * 0.0002;
     let prev = 0;
     for (let i = 0; i < N; i++) { const x = Math.random() * 2 - 1; d[i] = (x + prev) * 0.5; prev = x; } // softened pick
     for (let i = N; i < len; i++) d[i] = decay * 0.5 * (d[i - N] + d[i - N - 1 >= 0 ? i - N - 1 : 0]);
     const out = { buf, rate: f / (sr / (N + 0.5)) };
-    ksCache.set(m, out);
+    ksCache.set(ck, out);
     return out;
   }
-  function pluck(m, t, dur, vel) {
-    const { buf, rate } = ksBuffer(m);
+  function pluck(m, t, dur, vel, nylon) {
+    const { buf, rate } = ksBuffer(m, nylon);
     const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.32 * vel, t);
@@ -94,12 +96,16 @@
     src.start(t); src.stop(t + dur + 0.6);
   }
 
-  const VOICES = { piano, pad, guitar: pluck };
+  const ukulele = (m, t, dur, vel) => pluck(m, t, dur, vel * 0.9, true);
+  const VOICES = { piano, pad, guitar: pluck, ukulele };
+  const FRETTED = new Set(['guitar', 'ukulele']);
 
   /* Play a chord (array of MIDI notes) with a pattern. */
   function hit(notes, t, dur, instrument, pattern, beat) {
     const voice = VOICES[instrument] || piano;
-    const sorted = notes.slice().sort((a, b) => a - b);
+    const fretted = FRETTED.has(instrument);
+    // Fretted instruments strum in string order (a re-entrant ukulele's top G comes first, not last).
+    const sorted = fretted ? notes.slice() : notes.slice().sort((a, b) => a - b);
     if (pattern === 'arp') {
       const step = beat / 2;
       const seq = sorted.concat(sorted.slice(1, -1).reverse());
@@ -111,13 +117,13 @@
     }
     if (pattern === 'pulse') {
       for (let b = 0, tt = t; tt < t + dur - 0.01; b++, tt += beat) {
-        const down = b % 2 === 0 || instrument !== 'guitar';
+        const down = b % 2 === 0 || !fretted;
         const order = down ? sorted : sorted.slice().reverse();
-        order.forEach((n, i) => voice(n, tt + (instrument === 'guitar' ? i * 0.009 : 0), beat * 0.9, (b === 0 ? 1 : 0.75) * (down ? 1 : 0.7)));
+        order.forEach((n, i) => voice(n, tt + (fretted ? i * 0.009 : 0), beat * 0.9, (b === 0 ? 1 : 0.75) * (down ? 1 : 0.7)));
       }
       return;
     }
-    sorted.forEach((n, i) => voice(n, t + (instrument === 'guitar' ? i * 0.014 : 0), dur, 1));
+    sorted.forEach((n, i) => voice(n, t + (fretted ? i * 0.014 : 0), dur, 1));
   }
 
   /* ---------- transport ---------- */

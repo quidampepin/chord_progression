@@ -146,13 +146,21 @@
     sevenDropA: { midi: [33, 40, 45, 50, 55, 59, 64], names: ['A', 'E', 'A', 'D', 'G', 'B', 'E'] },
   };
   const TUNING = TUNINGS.standard.midi;
+  // Ukuleles: chords are read on all four strings and the lowest string isn't a bass, so no root-in-bass rule.
+  const UKE_TUNINGS = {
+    ukeStd:  { midi: [67, 60, 64, 69], names: ['G', 'C', 'E', 'A'] },   // re-entrant: high G
+    ukeLowG: { midi: [55, 60, 64, 69], names: ['G', 'C', 'E', 'A'] },
+    ukeD:    { midi: [69, 62, 66, 71], names: ['A', 'D', 'F♯', 'B'] },
+    ukeBari: { midi: [50, 55, 59, 64], names: ['D', 'G', 'B', 'E'] },
+  };
 
-  function guitarShapes(r, bassPc, limit, tuning) {
+  function guitarShapes(r, bassPc, limit, tuning, opts) {
     const TUN = tuning || TUNING;
     const N = TUN.length;
+    const free = !!(opts && opts.bassFree);
     const extra = N - 6; // extra low strings (7-string guitars)
     const pow = r.q.fam === 'pow';
-    const minStrings = pow ? 2 : 4;
+    const minStrings = pow ? 2 : Math.min(4, N);
     const pcs = new Set(r.pcs);
     const essential = new Set(r.q.ess.map((i) => r.tones[i].pc));
     const thirdPc = (r.tones.find((t) => ['3', '♭3'].includes(t.label)) || {}).pc;
@@ -168,9 +176,9 @@
       const evaluate = (fr) => {
         const sounding = fr.map((f, i) => (f >= 0 ? i : -1)).filter((i) => i >= 0);
         if (sounding.length < minStrings) return;
-        if (pow && sounding.length > 3) return;
+        if (pow && !free && sounding.length > 3) return;
         const lo = sounding[0], hi = sounding[sounding.length - 1];
-        if (mod(TUN[lo] + fr[lo], 12) !== bassPc) return;
+        if (!free && mod(TUN[lo] + fr[lo], 12) !== bassPc) return;
         // mutes: strings below the bass are fine; at most one gap inside (none for power chords)
         let gaps = 0;
         for (let i = lo; i <= hi; i++) if (fr[i] < 0) gaps++;
@@ -189,11 +197,12 @@
             if (fr[a] !== f) continue;
             let count = 0, last = a;
             for (let b = a; b < N && fr[b] >= f; b++) if (fr[b] === f) { count++; last = b; }
-            if (count - 1 > saving || (count - 1 === saving && saving > 0 && f < barre.fret)) { saving = count - 1; barre = { fret: f, from: a, to: last }; }
+            if (count - 1 > saving || (count - 1 === saving && saving > 0 && f < barre.fret)) { saving = count - 1; barre = { fret: f, from: a, to: last, count }; }
           }
         }
         const fingers = fretted.length - saving;
-        if (barre && barre.to - barre.from < 1) barre = null;
+        // Only draw a barre when it's really played as one: 3+ strings, or more notes than free fingers.
+        if (barre && (barre.to - barre.from < 1 || (barre.count < 3 && fretted.length <= 4))) barre = null;
         if (fingers > 4) return;
         const opens = sounding.filter((i) => fr[i] === 0).length;
         if (opens && minF > 5) return; // open strings far up the neck: rarely practical
@@ -203,7 +212,7 @@
           // Power chords: root on a low string, root–5th–octave, one or two fingers.
           score += minF * 0.12 + fingers * 0.25 - opens * 0.4;
           if (sounding.length === 2) score += 0.5;
-          if (loAdj >= 2) score += (loAdj - 1) * 0.9;
+          if (!free && loAdj >= 2) score += (loAdj - 1) * 0.9;
           if (notes[0] !== notes[notes.length - 1] && sounding.length === 3) score += 0.6;
         } else {
           score += minF * 0.32;
@@ -213,8 +222,8 @@
           score += fingers * 0.3;
           if (maxF - minF === 3) score += 0.9;
           if (fr[N - 1] < 0) score += 1.2;
-          if (loAdj === 2) score += 0.6;
-          if (loAdj >= 3) score += 2.5;
+          if (!free && loAdj === 2) score += 0.6;
+          if (!free && loAdj >= 3) score += 2.5;
           const missing = r.pcs.filter((p) => !notes.includes(p)).length;
           score += missing * 0.45;
           const thirds = notes.filter((p) => p === thirdPc).length;
@@ -237,7 +246,7 @@
         if (k === N) { evaluate(frets.slice()); return; }
         if (!started && k > N - minStrings) return; // not enough strings would remain
         for (const f of choices[k]) {
-          if (!started && f >= 0 && mod(TUN[k] + f, 12) !== bassPc) continue;
+          if (!free && !started && f >= 0 && mod(TUN[k] + f, 12) !== bassPc) continue;
           frets[k] = f;
           rec(k + 1, started || f >= 0);
         }
@@ -247,12 +256,14 @@
     return [...seen.values()].sort((a, b) => a.score - b.score).slice(0, limit || 8);
   }
 
-  function guitarVoicings(realized, piano, tuning) {
+  function guitarVoicings(realized, piano, tuning, opts) {
     const lists = realized.map((r, i) => {
       const bassPc = piano && piano[i] ? piano[i].bassPc : r.root.pc;
-      let l = guitarShapes(r, bassPc, 8, tuning);
-      if (!l.length && bassPc !== r.root.pc) l = guitarShapes(r, r.root.pc, 8, tuning);
-      if (!l.length) l = guitarShapes(Object.assign({}, r, { q: Object.assign({}, r.q, { ess: [0, 1] }) }), r.root.pc, 8, tuning);
+      let l = guitarShapes(r, bassPc, 8, tuning, opts);
+      if (!l.length && bassPc !== r.root.pc) l = guitarShapes(r, r.root.pc, 8, tuning, opts);
+      // Too many notes for the strings (e.g. a 5-note chord on ukulele): keep root, 3rd and 7th.
+      if (!l.length) l = guitarShapes(Object.assign({}, r, { q: Object.assign({}, r.q, { ess: r.q.ess.slice(0, 3) }) }), r.root.pc, 8, tuning, opts);
+      if (!l.length) l = guitarShapes(Object.assign({}, r, { q: Object.assign({}, r.q, { ess: [0, 1] }) }), r.root.pc, 8, tuning, opts);
       return l;
     });
     // Stay in one area of the neck: penalise jumps between shape centres.
@@ -273,5 +284,5 @@
     return lists.map((l, i) => ({ shapes: l, chosen: pickIdx[i] }));
   }
 
-  C.voicing = { pianoVoicings, guitarShapes, guitarVoicings, TUNING, TUNINGS };
+  C.voicing = { pianoVoicings, guitarShapes, guitarVoicings, TUNING, TUNINGS, UKE_TUNINGS };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

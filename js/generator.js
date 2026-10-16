@@ -170,6 +170,10 @@
         tpl('IV | V | iii | vi', 'Royal Road (J-pop)', 'Royal Road (J-pop)', 'major', 0.5),
         tpl('I | V | vi | iii | IV | I | IV | V', 'Pachelbel’s Canon', 'Canon de Pachelbel', 'major', 0.3),
         tpl('I | IV | iv | I', 'Minor plagal', 'Plagale mineure', 'major', 0.7),
+        tpl('I | % | IV | %', 'Two-chord vamp', 'Vamp à deux accords', 'major', 0.1),
+        tpl('I | V | vi | IV V', 'Axis with a push', 'Axe avec relance', 'major', 0.3),
+        tpl('vi | % | IV | I V', 'Slow-build verse', 'Couplet en montée', 'major', 0.3),
+        tpl('I | V | vi | %', 'Three-chord ballad', 'Ballade à trois accords', 'major', 0.2),
         tpl('i | bVI | bIII | bVII', 'Minor axis', 'Axe mineur', 'minor', 0),
         tpl('i | bVII | bVI | bVII', 'Aeolian loop', 'Boucle éolienne', 'minor', 0.1),
         tpl('i | iv | bVI | V', 'Minor lift', 'Élan mineur', 'minor', 0.3),
@@ -190,6 +194,9 @@
         tpl('I | bIII | IV | I', 'Borrowed ♭III', '♭III emprunté', 'major', 0.6),
         tpl('I | bVI | bVII | I', '“Mario” cadence', 'Cadence « Mario »', 'major', 0.6),
         tpl('I | IV | I | V', 'Three-chord rock', 'Rock à trois accords', 'major', 0),
+        tpl('I | % | bVII IV | I', 'Riff rock turnaround', 'Turnaround rock à riff', 'major', 0.4),
+        tpl('I | % | IV | %', 'Two-chord stomp', 'Stomp à deux accords', 'major', 0),
+        tpl('i | % | bVI bVII | i', 'Minor riff', 'Riff mineur', 'minor', 0.2),
         tpl('i | bVII | bVI | bVII', 'Aeolian vamp', 'Vamp éolien', 'minor', 0.1),
         tpl('i | bVII | bVI | V', 'Andalusian cadence', 'Cadence andalouse', 'minor', 0.3),
         tpl('i | bIII | bVII | IV', 'Dorian-tinged rock', 'Rock teinté dorien', 'minor', 0.6),
@@ -261,6 +268,8 @@
       t: [
         tpl('I | IV | I | V', 'Campfire', 'Feu de camp', 'major', 0),
         tpl('I | IV | V | I', 'Three-chord song', 'Chanson à trois accords', 'major', 0),
+        tpl('I | % | IV | I V', 'Front-porch', 'Sur la galerie', 'major', 0.1),
+        tpl('I | IV I | V | %', 'Hymn-like', 'Comme un cantique', 'major', 0.3),
         tpl('I | vi | IV | I', 'Singer-songwriter', 'Auteur-compositeur', 'major', 0.2),
         tpl('I | IV | I | V | I | IV | V | I', 'Folk verse', 'Couplet folk', 'major', 0),
         tpl('I | ii | IV | I', 'Gentle lift', 'Élan doux', 'major', 0.3),
@@ -281,6 +290,8 @@
       color: { 1: { maj: ['add9', 'maj7'], min: ['madd9', 'min7'], dom: ['dom7sus4', 'dom7'] }, 2: { maj: ['maj9', 'add9', 'sus2'], min: ['madd9', 'min9', 'min11'], dom: ['dom7sus4', 'dom7b9'] } },
       t: [
         tpl('i | bVI | bIII | bVII', 'Epic minor', 'Mineur épique', 'minor', 0),
+        tpl('i | % | bVI | bVII', 'Slow swell', 'Lente montée', 'minor', 0.1),
+        tpl('i | % | bVI | %', 'Two-chord drone', 'Bourdon à deux accords', 'minor', 0.2),
         tpl('i | bVI | iv | V', 'Tension rise', 'Montée de tension', 'minor', 0.3),
         tpl('i | bVI | bVII | i', 'Heroic minor', 'Mineur héroïque', 'minor', 0.1),
         tpl('i | bIII | bVI | V', 'Dark resolve', 'Résolution sombre', 'minor', 0.4),
@@ -302,6 +313,8 @@
       t: [
         tpl('i | bVI | bVII | i', 'Heroic gallop', 'Galop héroïque', 'minor', 0),
         tpl('i | bVII | bVI | bVII', 'Aeolian riff', 'Riff éolien', 'minor', 0.1),
+        tpl('i | % | bVI bVII | i', 'Gallop with a turn', 'Galop avec relance', 'minor', 0.2),
+        tpl('i | bII | i | bVI bVII', 'Doom march', 'Marche doom', 'minor', 0.5),
         tpl('i | bVI | bIII | bVII', 'Power ballad', 'Ballade power', 'minor', 0.2),
         tpl('i | iv | bVI | V', 'Neoclassical lift', 'Élan néoclassique', 'minor', 0.5),
         tpl('i | bII | i | bVII', 'Phrygian stab', 'Coup phrygien', 'minor', 0.6),
@@ -532,52 +545,129 @@
     return pick(r, ranked.map(([k, s]) => [k, Math.exp((s - top) / temp)])).split(' ');
   }
 
-  function walk(ctx, r) {
-    const n = ctx.length;
+  // n = number of chords; half = chords in the first 4 bars when both halves share a rhythm (else 0).
+  function walk(ctx, r, n, half) {
     const fixed = {};
     (ctx.locks || []).forEach((l, i) => { if (l && i < n) fixed[i] = T.baseToken(l); });
     const hasLocks = Object.keys(fixed).length > 0;
     if (ctx.ending === 'resolve' && !fixed[n - 1]) fixed[n - 1] = TONIC[ctx.mode];
-    // 8 bars: antecedent/consequent ("period") — bars 5–6 repeat bars 1–2, then a new ending.
-    if (n === 8 && !hasLocks && r() < 0.75 - ctx.adv * 0.3) {
-      const a = bestSeq(4, {}, Object.assign({}, ctx, { ending: 'half', length: 4 }), r);
-      const f2 = { 0: a[0], 1: a[1], 2: a[2], 3: a[3], 4: a[0], 5: a[1] };
-      if (fixed[7]) f2[7] = fixed[7];
-      return { seq: bestSeq(8, f2, ctx, r), period: true };
+    // 8 bars: antecedent/consequent ("period"). The second phrase starts like the first, then takes a new turn.
+    if (half >= 3 && !hasLocks && r() < 0.75 - ctx.adv * 0.3) {
+      const a = bestSeq(half, {}, Object.assign({}, ctx, { ending: 'half' }), r);
+      const f2 = {};
+      a.forEach((t, i) => (f2[i] = t));
+      for (let i = 0; i < Math.max(1, half - 2); i++) f2[half + i] = a[i];
+      if (fixed[n - 1]) f2[n - 1] = fixed[n - 1];
+      return { seq: bestSeq(n, f2, ctx, r), period: true };
     }
     return { seq: bestSeq(n, fixed, ctx, r), period: false };
   }
 
+  /* ---------- harmonic rhythm ----------
+   * How long each chord lasts, in beats, over a 4-bar phrase in 4/4.
+   * Long chords start on a bar line; 2-beat chords come in pairs inside one bar.
+   */
+  const RHYTHMS = {
+    steady:     [4, 4, 4, 4],
+    two:        [8, 8],
+    longFirst:  [8, 4, 4],
+    longLast:   [4, 4, 8],
+    longMid:    [4, 8, 4],
+    push:       [4, 4, 4, 2, 2],
+    midSplit:   [4, 2, 2, 4, 4],
+    twoSplits:  [4, 4, 2, 2, 2, 2],
+    swing:      [2, 2, 4, 2, 2, 4],
+    doubleTime: [2, 2, 2, 2, 2, 2, 2, 2],
+  };
+  const DEF_RHYTHM = { steady: 4, longFirst: 1, longLast: 1.2, push: 1.2, two: 0.5 };
+  const STYLE_RHYTHM = {
+    pop: { steady: 4, longFirst: 1, longLast: 1.5, push: 1.5, two: 0.6, midSplit: 0.6 },
+    rock: { steady: 3.5, two: 1.2, longFirst: 1.5, longLast: 1.5, push: 1, longMid: 0.6 },
+    jazz: { steady: 1.5, push: 2, twoSplits: 2, swing: 1.5, doubleTime: 1.2, midSplit: 1 },
+    soul: { steady: 2.5, push: 2, twoSplits: 1, longLast: 1, midSplit: 1 },
+    folk: { steady: 3.5, longFirst: 1.5, longLast: 1.5, two: 1, longMid: 1, push: 0.6 },
+    cinematic: { steady: 3, two: 1.5, longFirst: 1.5, longLast: 1.2, longMid: 0.8 },
+    metal: { steady: 3, two: 1.5, longFirst: 1, push: 1.5, twoSplits: 1 },
+    punk: { steady: 4, push: 1.5, longLast: 1, twoSplits: 0.6 },
+    funk: { two: 3, steady: 2, longFirst: 1, longLast: 1 },
+    gospel: { steady: 2, push: 2, twoSplits: 2, swing: 1, midSplit: 1 },
+    bossa: { steady: 2, push: 1.5, twoSplits: 2, doubleTime: 1, swing: 1 },
+    country: { steady: 3, longFirst: 2, longLast: 1.5, two: 1, push: 0.8 },
+    reggae: { steady: 3, two: 2, longLast: 1, doubleTime: 0.4 },
+    synthwave: { steady: 4, two: 1, longLast: 1, longFirst: 0.8 },
+    flamenco: { steady: 3, push: 1.5, twoSplits: 1, longLast: 1 },
+  };
+  function chooseRhythm(ctx, r) {
+    const bars = ctx.length;
+    if (ctx.rhythm && ctx.rhythm.length) return { beats: ctx.rhythm.slice(), half: 0 };
+    if (ctx.rhythmMode === 'steady') return { beats: new Array(bars).fill(4), half: bars === 8 ? 4 : 0 };
+    const w = STYLE_RHYTHM[ctx.styleId] || DEF_RHYTHM;
+    const entries = Object.entries(w).filter(([k]) => !(ctx.ending === 'resolve' && k === 'two' && bars === 4)).map(([k, v]) => [k, v]);
+    const a = pick(r, entries);
+    if (bars === 4) return { beats: RHYTHMS[a].slice(), half: 0 };
+    // 8 bars: usually the same rhythm twice (a question and its answer), sometimes a busier second half.
+    const b = r() < 0.6 ? a : pick(r, entries);
+    return { beats: RHYTHMS[a].concat(RHYTHMS[b]), half: a === b ? RHYTHMS[a].length : 0 };
+  }
+  function place(chords) {
+    let start = 0;
+    chords.forEach((c) => { c.start = start; c.bar = Math.floor(start / 4); start += c.beats; });
+    return chords;
+  }
+
+  // Loops often "push" back to the top: the last bar splits in two, adding a chord that leads to bar 1.
+  function addPush(chords, ctx, r) {
+    const last = chords[chords.length - 1], first = chords[0];
+    if (ctx.ending !== 'loop' || last.beats !== 4 || ctx.style.templatesOnly || ctx.rhythmMode === 'steady') return false;
+    if (r() > 0.25 + ctx.adv * 0.25) return false;
+    const lt = T.baseToken(last), ft = T.baseToken(first);
+    const entries = vocab(ctx.mode).filter((b) => b !== lt && b !== ft).map((b) => [b, trans(ctx.mode, ctx.style, ctx.adv, lt, b) * trans(ctx.mode, ctx.style, ctx.adv, b, ft)]).filter(([, w]) => w > 1.5);
+    if (!entries.length) return false;
+    const tok = pick(r, entries);
+    last.beats = 2;
+    chords.push(Object.assign(T.parseRoman(tok), { beats: 2 }));
+    return true;
+  }
+
   /* ---------- templates ---------- */
+  // "I | % | IV V | vi": bars split by "|", chords in a bar share it, "%" holds the previous chord another bar.
   function parseTemplate(p) {
     const out = [];
-    p.split('|').forEach((bar, b) => {
+    p.split('|').forEach((bar) => {
       const toks = bar.trim().split(/\s+/);
-      toks.forEach((tok) => out.push(Object.assign(T.parseRoman(tok), { beats: 4 / toks.length, bar: b })));
+      if (toks.length === 1 && toks[0] === '%') { out[out.length - 1].beats += 4; return; }
+      toks.forEach((tok) => out.push(Object.assign(T.parseRoman(tok), { beats: 4 / toks.length })));
     });
-    return out;
+    return place(out);
   }
   function fitTemplate(t, ctx) {
     let chords = parseTemplate(t.p);
-    const bars = chords[chords.length - 1].bar + 1;
+    const bars = t.p.split('|').length;
     if (bars !== ctx.length) {
       if (bars * 2 !== ctx.length) return null;
-      chords = chords.concat(chords.map((c) => Object.assign({}, c, { bar: c.bar + bars })));
+      chords = place(chords.concat(chords.map((c) => Object.assign({}, c))));
     }
+    // Drop everything from beat `cut` on, shortening a chord that crosses it.
+    const cutAt = (cut) => {
+      const keep = chords.filter((c) => c.start < cut).map((c) => Object.assign({}, c));
+      const lastKept = keep[keep.length - 1];
+      if (lastKept) lastKept.beats = Math.min(lastKept.beats, cut - lastKept.start);
+      return keep;
+    };
     if (ctx.ending === 'resolve') {
       const last = chords[chords.length - 1];
       if (ctx.style.templatesOnly) {
         // Blues: the last chorus simply lands on the tonic in bar 12.
-        const keep = chords.filter((c) => c.bar < ctx.length - 1);
-        const ton = Object.assign({}, keep[0], { beats: 4, bar: ctx.length - 1 });
-        chords = keep.concat([ton]);
+        const keep = cutAt((ctx.length - 1) * 4);
+        const ton = Object.assign({}, keep[0], { beats: 4 });
+        chords = place(keep.concat([ton]));
       } else if (last.rootPc !== 0 || last.beats !== 4) {
         // Swap the last bars for a cadence formula that fits the mode.
         for (const cad of CADENCES[ctx.mode]) {
-          const keep = chords.filter((c) => c.bar < ctx.length - cad.length);
+          const keep = cutAt((ctx.length - cad.length) * 4);
           const before = keep[keep.length - 1];
           if (before && T.baseToken(before) === cad[0]) continue;
-          chords = keep.concat(cad.map((tok, i) => Object.assign(T.parseRoman(tok), { beats: 4, bar: ctx.length - cad.length + i })));
+          chords = place(keep.concat(cad.map((tok) => Object.assign(T.parseRoman(tok), { beats: 4 }))));
           break;
         }
       }
@@ -604,7 +694,7 @@
       for (let i = 0; i < n; i++) {
         const c = chords[i], nx = next(i);
         if (locked(i) || !nx || c.role || c.rootPc !== 5 || Q[c.quality].fam !== 'maj') continue;
-        if ((nx.rootPc === 0 || nx.rootPc === 7) && r() < P.mix * ctx.adv) chords[i] = Object.assign(T.chordOn(3, 5, 'min'), { beats: c.beats, bar: c.bar, explicit: false });
+        if ((nx.rootPc === 0 || nx.rootPc === 7) && r() < P.mix * ctx.adv) chords[i] = Object.assign(T.chordOn(3, 5, 'min'), { beats: c.beats, start: c.start, bar: c.bar, explicit: false });
       }
     }
     // Secondary dominants: a chord whose root is a 5th above the next chord becomes its V7.
@@ -616,7 +706,7 @@
       if (mod(c.rootPc - nx.rootPc, 12) !== 7) continue;
       let p = P.sec * (0.3 + ctx.adv);
       if (c.rootPc === 0) p *= i === 0 ? 0 : 0.4;
-      if (r() < p) chords[i] = Object.assign(T.chordOn(c.degree, c.rootPc, 'dom7', 'secondary', triadize(nx)), { beats: c.beats, bar: c.bar });
+      if (r() < p) chords[i] = Object.assign(T.chordOn(c.degree, c.rootPc, 'dom7', 'secondary', triadize(nx)), { beats: c.beats, start: c.start, bar: c.bar });
     }
     // Tritone substitution: a dominant falling a 5th is replaced by the dominant a tritone away.
     if (ctx.adv > 0.45 && P.tri > 0) {
@@ -625,7 +715,7 @@
         if (locked(i) || !nx || c.role === 'tritone') continue;
         const isDom = c.role === 'secondary' || (c.rootPc === 7 && Q[c.quality].fam !== 'min');
         if (!isDom || mod(c.rootPc - nx.rootPc, 12) !== 7) continue;
-        if (r() < P.tri * ctx.adv) chords[i] = Object.assign(T.chordOn(c.degree + 4, c.rootPc + 6, 'dom7', 'tritone', triadize(nx)), { beats: c.beats, bar: c.bar });
+        if (r() < P.tri * ctx.adv) chords[i] = Object.assign(T.chordOn(c.degree + 4, c.rootPc + 6, 'dom7', 'tritone', triadize(nx)), { beats: c.beats, start: c.start, bar: c.bar });
       }
     }
     return chords;
@@ -688,19 +778,28 @@
     const locks = (opts.locks || []).filter(Boolean);
     let chords = null, source = null;
 
-    const useTemplate = style.templatesOnly || (!locks.length && r() < 0.8 - 0.65 * ctx.adv);
+    const useTemplate = style.templatesOnly || (!locks.length && r() < 0.75 - 0.6 * ctx.adv);
     if (useTemplate) {
       const t = chooseTemplate(style, ctx, r);
-      if (t) { chords = fitTemplate(t, ctx); source = { type: 'template', name: t.n, p: t.p }; }
+      if (t) {
+        chords = fitTemplate(t, ctx);
+        source = { type: 'template', name: t.n, p: t.p };
+        if (addPush(chords, ctx, r)) source.push = true;
+        place(chords);
+      }
     }
     if (!chords) {
-      const { seq, period } = walk(ctx, r);
-      chords = seq.map((tok, i) => Object.assign(T.parseRoman(tok), { beats: 4, bar: i }));
+      const rh = chooseRhythm(ctx, r);
+      const { seq, period } = walk(ctx, r, rh.beats.length, rh.half);
+      chords = place(seq.map((tok, i) => Object.assign(T.parseRoman(tok), { beats: rh.beats[i] })));
       source = { type: 'walk', period };
     }
-    // Restore locked chords exactly as they were.
+    // Restore locked chords exactly as they were (same rhythm, so indexes line up).
     ctx.lockedIdx = new Set();
-    (opts.locks || []).forEach((l, i) => { if (l && i < chords.length && chords.length === ctx.length) { chords[i] = Object.assign({}, l, { beats: 4, bar: i }); ctx.lockedIdx.add(i); } });
+    const lockList = opts.locks || [];
+    if (locks.length && lockList.length === chords.length) {
+      lockList.forEach((l, i) => { if (l) { chords[i] = Object.assign({}, l, { beats: chords[i].beats, start: chords[i].start, bar: chords[i].bar }); ctx.lockedIdx.add(i); } });
+    }
     chords = passes(chords, ctx, r);
     chords.forEach((c, i) => {
       if (ctx.lockedIdx.has(i)) { c.locked = true; return; }
@@ -732,7 +831,7 @@
     });
     const tok = pick(r, entries);
     if (!tok) return prog;
-    const c = Object.assign(T.parseRoman(tok), { beats: ch[i].beats, bar: ch[i].bar, explicit: false });
+    const c = Object.assign(T.parseRoman(tok), { beats: ch[i].beats, start: ch[i].start, bar: ch[i].bar, explicit: false });
     c.base = c.quality;
     const twin = ch.find((o, k) => k !== i && o.base === c.base && T.baseToken(o) === tok && !o.role);
     c.seed = twin ? twin.seed : Math.floor(r() * 2 ** 31);
@@ -797,5 +896,5 @@
     return out.slice(0, 6);
   }
 
-  C.gen = { STYLES, generate, reroll, recolor, analyze, fnOf, rng, TONIC, MATRIX };
+  C.gen = { STYLES, RHYTHMS, generate, reroll, recolor, analyze, fnOf, rng, TONIC, MATRIX };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

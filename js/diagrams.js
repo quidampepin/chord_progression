@@ -21,7 +21,8 @@
     const maxF = fretted.length ? Math.max(...fretted) : 0;
     const minF = fretted.length ? Math.min(...fretted) : 0;
     const base = maxF <= 4 ? 1 : minF;
-    const rows = 5, x0 = 18, dx = 66 / (N - 1), y0 = 26, dy = 17.4;
+    // 6–7 strings fill the box; a 4-string ukulele gets a narrower, centred one.
+    const span = Math.min(66, (N - 1) * 16), rows = 5, x0 = 51 - span / 2, dx = span / (N - 1), y0 = 26, dy = 17.4;
     const rad = Math.min(5.8, dx * 0.46);
     const names = opts.names;
     const H = y0 + rows * dy + (names ? 14 : 4);

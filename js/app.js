@@ -11,11 +11,13 @@
   const defaults = {
     lang: (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en',
     notation: 'letters', tonic: 0, mode: 'major', style: 'pop', length: 4, color: 0, adventure: 0.35,
-    ending: 'loop', smoothBass: true, view: 'guitar', pianoStyle: 'close', tuning: 'standard', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
+    ending: 'loop', rhythm: 'varied', smoothBass: true, pianoStyle: 'close', tuning: 'standard', ukeTuning: 'ukeStd', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
   };
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { saved = null; }
   const state = Object.assign({}, defaults, saved && saved.settings);
+  if (!['guitar', 'ukulele', 'piano', 'pad'].includes(state.instrument)) state.instrument = 'guitar';
+  delete state.view; // older versions kept a separate display setting
   let prog = (saved && saved.prog) || null;
   let history = (saved && saved.history) || [];
   let shapePick = (saved && saved.shapePick) || {};
@@ -35,19 +37,43 @@
     const k = key();
     const realized = prog.chords.map((c) => T.realize(c, k));
     const piano = V.pianoVoicings(realized, { style: state.pianoStyle, smoothBass: state.smoothBass });
-    const tun = V.TUNINGS[state.tuning] || V.TUNINGS.standard;
-    const guitar = V.guitarVoicings(realized, piano, tun.midi);
-    guitar.forEach((g, i) => { const p = shapePick[i]; if (p != null && g.shapes[p]) g.chosen = p; });
-    derived = { key: k, realized, piano, guitar };
+    // The chart, the playback and the selected-chord panel all follow one instrument.
+    let fret = null;
+    if (isFretted()) {
+      fret = V.guitarVoicings(realized, piano, currentTuning().midi, { bassFree: state.instrument === 'ukulele' });
+      fret.forEach((g, i) => { const p = shapePick[i]; if (p != null && g.shapes[p]) g.chosen = p; });
+    }
+    derived = { key: k, realized, piano, fret };
+  }
+  function isFretted() { return state.instrument === 'guitar' || state.instrument === 'ukulele'; }
+  function currentTuning() {
+    if (state.instrument === 'ukulele') return V.UKE_TUNINGS[state.ukeTuning] || V.UKE_TUNINGS.ukeStd;
+    return V.TUNINGS[state.tuning] || V.TUNINGS.standard;
+  }
+  const tuningKey = () => (state.instrument === 'ukulele' ? state.ukeTuning : state.tuning);
+  const currentShape = (i) => { const g = derived.fret && derived.fret[i]; return g ? g.shapes[g.chosen] : null; };
+
+  // Bars of the chart. A chord longer than its bar continues into the next ones (shown as a repeat sign).
+  function layout() {
+    const bars = [];
+    let start = 0;
+    prog.chords.forEach((c, i) => {
+      const b = Math.floor(start / 4), off = start % 4;
+      (bars[b] = bars[b] || []).push({ i, cont: false });
+      let rem = c.beats - (4 - off), nb = b + 1;
+      while (rem > 0) { (bars[nb] = bars[nb] || []).push({ i, cont: true }); rem -= 4; nb++; }
+      start += c.beats;
+    });
+    return bars.map((items) => { const fresh = items.filter((x) => !x.cont); return fresh.length ? fresh : [items[0]]; });
   }
 
   // Bass note actually sounding in the current view (for slash chords).
   function bassTone(i) {
     const r = derived.realized[i];
     let pc;
-    if (state.view === 'guitar') {
-      const g = derived.guitar[i];
-      const s = g.shapes[g.chosen];
+    if (state.instrument === 'ukulele') return null; // no real bass string on a ukulele
+    if (state.instrument === 'guitar') {
+      const s = currentShape(i);
       if (!s) return null;
       pc = s.midi[0] % 12;
     } else pc = derived.piano[i].bassPc;
@@ -68,23 +94,22 @@
     return `<span class="sym-root">${esc(p.root)}${esc(p.inline)}</span>${p.sup ? `<sup>${esc(p.sup)}</sup>` : ''}${p.bass ? `<span class="sym-bass">/${esc(p.bass)}</span>` : ''}`;
   }
   function notesFor(i) {
-    if (state.instrument === 'guitar') {
-      const g = derived.guitar[i];
-      const s = g.shapes[g.chosen];
-      if (s) return s.midi;
-    }
-    return derived.piano[i].notes;
+    const s = isFretted() ? currentShape(i) : null;
+    return s ? s.midi : derived.piano[i].notes;
   }
 
   /* ---------- actions ---------- */
   function signature(p) { return p ? p.chords.map(T.baseToken).join(' ') : ''; }
   function generate() {
     const k = key();
-    const sameShape = prog && prog.chords.length === state.length && prog.chords.every((c) => c.beats === 4);
-    const locks = sameShape ? prog.chords.map((c) => (c.locked ? c : null)) : [];
+    const totalBeats = prog ? prog.chords.reduce((s, c) => s + c.beats, 0) : 0;
+    const anyLock = prog && prog.chords.some((c) => c.locked) && totalBeats === state.length * 4;
+    // With locked chords, keep the current rhythm so each lock stays in its place.
+    const locks = anyLock ? prog.chords.map((c) => (c.locked ? c : null)) : [];
+    const rhythm = anyLock ? prog.chords.map((c) => c.beats) : null;
     if (prog) remember();
     prog = G.generate({
-      key: k, styleId: state.style, length: state.length, ending: state.ending,
+      key: k, styleId: state.style, length: state.length, ending: state.ending, rhythmMode: state.rhythm, rhythm,
       adventure: state.adventure, color: state.color, locks,
       avoid: signature(prog), avoidTemplate: prog && prog.source && prog.source.p,
     });
@@ -119,19 +144,17 @@
     persist();
   }
   function cycleShape(i, dir) {
-    const g = derived.guitar[i];
-    if (!g.shapes.length) return;
+    const g = derived.fret && derived.fret[i];
+    if (!g || !g.shapes.length) return;
     g.chosen = (g.chosen + dir + g.shapes.length) % g.shapes.length;
     shapePick[i] = g.chosen;
     selected = i;
     renderSheet(); renderFocus(); persist();
-    audition(i, 'guitar');
+    audition(i);
   }
-  function audition(i, inst) {
+  function audition(i) {
     if (A.playing) return;
-    const instrument = inst || state.instrument;
-    const notes = instrument === 'guitar' && derived.guitar[i].shapes[derived.guitar[i].chosen] ? derived.guitar[i].shapes[derived.guitar[i].chosen].midi : derived.piano[i].notes;
-    A.audition(notes, instrument);
+    A.audition(notesFor(i), state.instrument);
   }
   function events() {
     return prog.chords.map((c, i) => ({ notes: notesFor(i), beats: c.beats, label: symbolText(i) }));
@@ -154,21 +177,21 @@
   function markPlaying(i) {
     if (i === lastPlaying) return;
     lastPlaying = i;
-    $$('.chord').forEach((el) => el.classList.toggle('is-playing', +el.dataset.i === i));
+    $$('.chord, .simile').forEach((el) => el.classList.toggle('is-playing', +el.dataset.i === i));
     if (i >= 0 && i !== selected) { selected = i; renderFocus(); $$('.chord').forEach((el) => el.classList.toggle('is-selected', +el.dataset.i === i)); }
   }
 
   function chartText() {
     const k = derived.key;
-    const head = `Cadence — ${nn(k.tonic)} ${tr('modes.' + state.mode).toLowerCase()} · ${tr('styles.' + state.style)} · ${state.tempo} BPM` + (state.tuning !== 'standard' ? ` · ${tr('tunings.' + state.tuning)} (${V.TUNINGS[state.tuning].names.join(' ')})` : '');
-    const bars = [];
-    prog.chords.forEach((c, i) => { (bars[c.bar] = bars[c.bar] || []).push(i); });
+    const tunName = isFretted() ? ` · ${tr('sounds.' + state.instrument)}, ${tr('tunings.' + tuningKey())} (${currentTuning().names.join(' ')})` : '';
+    const head = `Cadence — ${nn(k.tonic)} ${tr('modes.' + state.mode).toLowerCase()} · ${tr('styles.' + state.style)} · ${state.tempo} BPM` + tunName;
+    const bars = layout();
     const lines = [head, ''];
     for (let r = 0; r < bars.length; r += 4) {
       const row = bars.slice(r, r + 4);
-      const cell = (ids, f) => ' ' + ids.map(f).join('  ').padEnd(12) + ' ';
-      lines.push('|' + row.map((ids) => cell(ids, symbolText)).join('|') + '|');
-      lines.push('|' + row.map((ids) => cell(ids, (i) => T.romanText(prog.chords[i]))).join('|') + '|');
+      const cell = (items, f) => ' ' + (items[0].cont ? '%' : items.map((x) => f(x.i)).join('  ')).padEnd(12) + ' ';
+      lines.push('|' + row.map((items) => cell(items, symbolText)).join('|') + '|');
+      lines.push('|' + row.map((items) => cell(items, (i) => T.romanText(prog.chords[i]))).join('|') + '|');
       lines.push('');
     }
     return lines.join('\n').trim();
@@ -219,9 +242,9 @@
     fillSelect($('#mode'), style.modes.map((m) => [m, tr('modes.' + m)]), state.mode);
     fillSelect($('#style'), Object.keys(G.STYLES).map((s) => [s, tr('styles.' + s)]), state.style);
     fillSelect($('#length'), style.lengths.map((l) => [l, l + ' ' + tr('bars')]), state.length);
-    fillSelect($('#instrument'), ['guitar', 'piano', 'pad'].map((s) => [s, tr('sounds.' + s)]), state.instrument);
     fillSelect($('#pattern'), ['pulse', 'block', 'arp'].map((s) => [s, tr('patterns.' + s)]), state.pattern);
-    fillSelect($('#tuning'), Object.keys(V.TUNINGS).map((k) => [k, tr('tunings.' + k) + ' · ' + V.TUNINGS[k].names.join(' ')]), state.tuning);
+    const tunings = state.instrument === 'ukulele' ? V.UKE_TUNINGS : V.TUNINGS;
+    fillSelect($('#tuning'), Object.keys(tunings).map((k) => [k, tr('tunings.' + k) + ' · ' + tunings[k].names.join(' ')]), tuningKey());
     fillSelect($('#piano-style'), ['close', 'drop2', 'shell'].map((s) => [s, tr('pianoStyles.' + s)]), state.pianoStyle);
     $('#adventure').value = state.adventure;
     $('#tempo').value = state.tempo;
@@ -231,11 +254,12 @@
     const seg = (sel, attr, val) => $$(sel + ' [data-' + attr + ']').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === String(val))));
     seg('#color', 'color', state.color);
     seg('#ending', 'ending', state.ending);
-    seg('#view', 'view', state.view);
+    seg('#view', 'inst', state.instrument);
+    seg('#rhythm', 'rhythm', state.rhythm);
     $$('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === state.lang)));
     $$('[data-notation]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.notation === state.notation)));
-    $('#piano-style-wrap').hidden = state.view !== 'piano';
-    $('#tuning-wrap').hidden = state.view !== 'guitar';
+    $('#piano-style-wrap').hidden = isFretted();
+    $('#tuning-wrap').hidden = !isFretted();
     // Power-chord styles (metal, punk): the first colour level is power chords, then triads.
     const colorKeys = style.power ? ['colorPower', 'color0', 'color2'] : ['color0', 'color1', 'color2'];
     $$('#color [data-color]').forEach((b, n) => { b.textContent = tr(colorKeys[n]); });
@@ -274,26 +298,31 @@
     if (src.type === 'template') s = tr('src.template', { name: src.name[state.lang] || src.name.en });
     else if (src.type === 'walk') s = tr('src.walk') + (src.period ? ' ' + tr('src.period') : '');
     else if (src.type === 'edited') s = tr('src.edited');
-    $('#source').textContent = s;
-
-    const bars = [];
-    prog.chords.forEach((c, i) => { (bars[c.bar] = bars[c.bar] || []).push(i); });
-    const canLock = prog.chords.length === bars.length && !G.STYLES[state.style].templatesOnly;
+    const bars = layout();
+    $('#source').textContent = `${prog.chords.length} ${tr('chords')} · ${bars.length} ${tr('bars')}. ${s}`;
+    const canLock = !G.STYLES[state.style].templatesOnly;
     const loop = state.ending === 'loop';
     $('#measures').className = 'measures' + (loop ? ' is-loop' : ' is-final') + (bars.length > 8 ? ' is-long' : '');
-    $('#measures').innerHTML = bars.map((ids, b) => `
+    $('#measures').innerHTML = bars.map((items, b) => `
       <div class="bar${b === 0 ? ' first' : ''}${b === bars.length - 1 ? ' last' : ''}" data-bar="${b + 1}">
         <span class="bar-no">${b + 1}</span>
-        ${ids.map((i) => chordCard(i, canLock, ids.length > 1)).join('')}
+        ${items[0].cont ? simile(items[0].i) : items.map((x) => chordCard(x.i, canLock, items.length > 1)).join('')}
       </div>`).join('');
     renderLegend();
+  }
+
+  // Bar-repeat sign: the chord from the previous bar keeps sounding.
+  function simile(i) {
+    return `<button type="button" class="simile${i === lastPlaying ? ' is-playing' : ''}" data-act="select" data-i="${i}" title="${esc(tr('simile', { a: symbolText(i) }))}" aria-label="${esc(tr('simile', { a: symbolText(i) }))}">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><line x1="11" y1="31" x2="29" y2="9"/><circle cx="12" cy="13" r="3"/><circle cx="28" cy="27" r="3"/></svg>
+      <span class="simile-name">${esc(symbolText(i))}</span></button>`;
   }
 
   function chordCard(i, canLock, half) {
     const c = prog.chords[i];
     const fn = G.fnOf(c, state.mode);
-    const g = derived.guitar[i];
-    const visual = state.view === 'guitar'
+    const g = derived.fret && derived.fret[i];
+    const visual = g
       ? `<div class="gwrap">${D.guitar(g.shapes[g.chosen], derived.realized[i], { aria: symbolText(i) })}
            ${g.shapes.length > 1 ? `<div class="shape-nav">
              <button type="button" class="icon-btn" data-act="prev" data-i="${i}" title="${esc(tr('prevShape'))}" aria-label="${esc(tr('prevShape'))}">${ICON.prev}</button>
@@ -325,14 +354,15 @@
     const i = Math.min(selected, prog.chords.length - 1);
     const c = prog.chords[i];
     const r = derived.realized[i];
-    const pv = derived.piano[i];
-    const g = derived.guitar[i];
+    const g = derived.fret && derived.fret[i];
     const fn = G.fnOf(c, state.mode);
+    // The keyboard shows exactly the notes the current instrument plays.
+    const played = notesFor(i);
     const marks = new Map();
-    marks.set(pv.bass, { label: (r.tones.find((t) => t.pc === pv.bassPc) || {}).label || '', cls: pv.bassPc === r.root.pc ? 'root' : 'tone' });
-    pv.upper.forEach((m) => { const t = r.tones.find((x) => x.pc === m % 12) || {}; marks.set(m, { label: t.label || '', cls: t.label === 'R' ? 'root' : 'tone' }); });
+    played.forEach((m) => { const t = r.tones.find((x) => x.pc === m % 12) || {}; marks.set(m, { label: t.label || '', cls: t.label === 'R' ? 'root' : 'tone' }); });
     const tones = r.tones.map((t) => `<li><span class="tone-name">${esc(nn(t))}</span><span class="tone-int${t.label === 'R' ? ' root' : ''}">${esc(t.label)}</span></li>`).join('');
-    const shapes = g.shapes.map((s, k) => `<button type="button" class="alt${k === g.chosen ? ' on' : ''}" data-act="shape" data-i="${i}" data-k="${k}" aria-pressed="${k === g.chosen}" title="${esc(tr('shapeOf', { a: k + 1, b: g.shapes.length }))}">${D.guitar(s, r, { labels: false })}<span>${s.frets.map((f) => (f < 0 ? '×' : f)).join(' ')}</span></button>`).join('');
+    const shapes = g ? g.shapes.map((s, k) => `<button type="button" class="alt${k === g.chosen ? ' on' : ''}" data-act="shape" data-i="${i}" data-k="${k}" aria-pressed="${k === g.chosen}" title="${esc(tr('shapeOf', { a: k + 1, b: g.shapes.length }))}">${D.guitar(s, r, { labels: false })}<span>${s.frets.map((f) => (f < 0 ? '×' : f)).join(' ')}</span></button>`).join('') : '';
+    const lo = Math.min(36, Math.floor(Math.min(...played) / 12) * 12), hi = Math.max(84, Math.max(...played));
     $('#focus').innerHTML = `
       <div class="focus-head fn-${fn}">
         <div class="focus-sym">${symbolHTML(i)}</div>
@@ -342,16 +372,16 @@
         </div>
         <ul class="tones" aria-label="${esc(tr('notes'))}">${tones}</ul>
       </div>
-      <div class="focus-grid">
-        <div class="focus-guitar">
-          <h3 class="h3">${esc(tr('shapes'))} · ${esc(tr('tunings.' + state.tuning))}</h3>
-          <div class="big-g">${D.guitar(g.shapes[g.chosen], r, { aria: symbolText(i), names: (V.TUNINGS[state.tuning] || V.TUNINGS.standard).names })}</div>
+      <div class="focus-grid${g ? '' : ' solo'}">
+        ${g ? `<div class="focus-guitar">
+          <h3 class="h3">${esc(tr(state.instrument === 'ukulele' ? 'ukeShapes' : 'shapes'))} · ${esc(tr('tunings.' + tuningKey()))}</h3>
+          <div class="big-g">${D.guitar(g.shapes[g.chosen], r, { aria: symbolText(i), names: currentTuning().names })}</div>
           <div class="alts">${shapes}</div>
-        </div>
+        </div>` : ''}
         <div class="focus-piano">
-          <h3 class="h3">${esc(tr('keyboard'))}</h3>
-          <div class="big-kbd">${D.keyboard(36, 84, marks, { labels: true, octaves: true, h: 64, aria: symbolText(i) })}</div>
-          <p class="voicing-notes">${[pv.bass].concat(pv.upper).map((m) => { const t = r.tones.find((x) => x.pc === m % 12); return esc(nn(t || T.spell(0, m)) + (Math.floor(m / 12) - 1)); }).join(' · ')}</p>
+          <h3 class="h3">${esc(g ? tr('soundingNotes') : tr('keyboard'))}</h3>
+          <div class="big-kbd">${D.keyboard(lo, hi, marks, { labels: true, octaves: true, h: 64, aria: symbolText(i) })}</div>
+          <p class="voicing-notes">${played.map((m) => { const t = r.tones.find((x) => x.pc === m % 12); return esc(nn(t || T.spell(0, m)) + (Math.floor(m / 12) - 1)); }).join(' · ')}</p>
         </div>
       </div>`;
   }
@@ -419,9 +449,9 @@
     $('#adventure').addEventListener('input', (e) => { state.adventure = +e.target.value; persist(); });
     $('#adventure').addEventListener('change', () => generate());
     $('#smooth-bass').addEventListener('change', (e) => { state.smoothBass = e.target.checked; shapePick = {}; refresh(true); });
-    $('#tuning').addEventListener('change', (e) => { state.tuning = e.target.value; shapePick = {}; refresh(true); });
+    $('#tuning').addEventListener('change', (e) => { if (state.instrument === 'ukulele') state.ukeTuning = e.target.value; else state.tuning = e.target.value; shapePick = {}; refresh(true); });
+    $('#rhythm').addEventListener('click', (e) => { const b = e.target.closest('[data-rhythm]'); if (!b) return; state.rhythm = b.dataset.rhythm; generate(); });
     $('#piano-style').addEventListener('change', (e) => { state.pianoStyle = e.target.value; refresh(true); });
-    $('#instrument').addEventListener('change', (e) => { state.instrument = e.target.value; persist(); restartIfPlaying(); });
     $('#pattern').addEventListener('change', (e) => { state.pattern = e.target.value; persist(); restartIfPlaying(); });
     $('#repeat').addEventListener('change', (e) => { state.repeat = e.target.checked; persist(); restartIfPlaying(); });
     $('#tempo').addEventListener('input', (e) => { state.tempo = +e.target.value; $('#tempo-out').textContent = state.tempo; });
@@ -434,7 +464,12 @@
       refresh(true);
     });
     $('#ending').addEventListener('click', (e) => { const b = e.target.closest('[data-ending]'); if (!b) return; state.ending = b.dataset.ending; generate(); });
-    $('#view').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (!b) return; state.view = b.dataset.view; renderControls(); renderSheet(); persist(); });
+    $('#view').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-inst]'); if (!b || b.dataset.inst === state.instrument) return;
+      state.instrument = b.dataset.inst;
+      shapePick = {};
+      refresh(true); // re-voices for the new instrument and restarts playback with its sound
+    });
     $$('[data-lang]').forEach((b) => b.addEventListener('click', () => { state.lang = b.dataset.lang; refresh(false); }));
     $$('[data-notation]').forEach((b) => b.addEventListener('click', () => { state.notation = b.dataset.notation; refresh(false); }));
 
@@ -451,7 +486,7 @@
       else if (act === 'swap') reroll(i);
       else if (act === 'prev') cycleShape(i, -1);
       else if (act === 'next') cycleShape(i, 1);
-      else if (act === 'shape') { derived.guitar[i].chosen = +b.dataset.k; shapePick[i] = +b.dataset.k; renderSheet(); renderFocus(); persist(); audition(i, 'guitar'); }
+      else if (act === 'shape') { derived.fret[i].chosen = +b.dataset.k; shapePick[i] = +b.dataset.k; renderSheet(); renderFocus(); persist(); audition(i); }
     };
     $('#measures').addEventListener('click', onAct);
     $('#focus').addEventListener('click', onAct);
@@ -472,7 +507,7 @@
     const st = G.STYLES[state.style];
     if (!st) state.style = 'pop';
     if (!prog || !prog.chords || !prog.chords.length) {
-      prog = G.generate({ key: key(), styleId: state.style, length: state.length, ending: state.ending, adventure: state.adventure, color: state.color, seed: 20261016 });
+      prog = G.generate({ key: key(), styleId: state.style, length: state.length, ending: state.ending, rhythmMode: state.rhythm, adventure: state.adventure, color: state.color, seed: 20261016 });
     }
     try { refresh(false); } catch (err) {
       // A saved progression from an older version can be unreadable: start fresh.
