@@ -151,7 +151,8 @@ kbd {
 .source { margin: 4px 0 0; color: var(--muted); font-size: var(--step--1); max-width: 70ch; }
 .view-switch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .field-inline { display: flex; align-items: center; gap: 8px; }
-.field-inline select { width: auto; }
+.field-inline select { width: auto; max-width: 100%; }
+#tuning-wrap { min-width: 0; max-width: 100%; }
 
 .measures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 18px; }
 .bar {
@@ -223,6 +224,7 @@ kbd {
 .g-dot.root { fill: var(--accent); }
 .g-barre { fill: var(--ink); opacity: .22; }
 .g-lab { fill: var(--bg); font: 600 6.4px var(--f-mono); }
+.g-name { fill: var(--muted); font: 500 7px var(--f-mono); }
 .g-lab.root { fill: var(--accent-ink); }
 
 .shape-nav { display: flex; align-items: center; gap: 2px; }

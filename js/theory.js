@@ -17,6 +17,9 @@
     minor:      { steps: [0, 2, 3, 5, 7, 8, 10], parallel: 'major' },
     dorian:     { steps: [0, 2, 3, 5, 7, 9, 10], parallel: 'major' },
     mixolydian: { steps: [0, 2, 4, 5, 7, 9, 10], parallel: 'minor' },
+    phrygian:   { steps: [0, 1, 3, 5, 7, 8, 10], parallel: 'major' },
+    phrygianDom: { steps: [0, 1, 4, 5, 7, 8, 10], parallel: 'minor' },
+    lydian:     { steps: [0, 2, 4, 6, 7, 9, 11], parallel: 'minor' },
   };
   const HARMONIC_MINOR = [0, 2, 3, 5, 7, 8, 11];
 
@@ -101,11 +104,14 @@
     min9:     { iv: [0, 3, 7, 10, 14], lt: [0, 2, 4, 6, 1], lab: ['R', '♭3', '5', '♭7', '9'], ess: [0, 1, 3, 4], fam: 'min', sym: 'm9', rn: '9' },
     min11:    { iv: [0, 3, 7, 10, 14, 17], lt: [0, 2, 4, 6, 1, 3], lab: ['R', '♭3', '5', '♭7', '9', '11'], ess: [0, 1, 3, 5], fam: 'min', sym: 'm11', rn: '11' },
     m7b5:     { iv: [0, 3, 6, 10], lt: [0, 2, 4, 6], lab: ['R', '♭3', '♭5', '♭7'], fam: 'hdim', sym: 'm7♭5', rn: 'ø7' },
+    pow5:     { iv: [0, 7], lt: [0, 4], lab: ['R', '5'], fam: 'pow', sym: '5', rn: '5' },
     dim7:     { iv: [0, 3, 6, 9], lt: [0, 2, 4, 6], lab: ['R', '♭3', '♭5', '°7'], fam: 'dim7', sym: '°7', rn: '°7' },
   };
   for (const k in Q) if (!Q[k].ess) Q[k].ess = Q[k].iv.map((_, i) => i);
 
-  const TRIAD_OF_FAMILY = { maj: 'maj', min: 'min', dom: 'maj', dim: 'dim', hdim: 'dim', dim7: 'dim', aug: 'aug' };
+  const TRIAD_OF_FAMILY = { maj: 'maj', min: 'min', dom: 'maj', dim: 'dim', hdim: 'dim', dim7: 'dim', aug: 'aug', pow: 'pow5' };
+  // Power chords have no 3rd; for harmony (numeral case, function, key fit) use the chord they stand for.
+  const harm = (ch) => (Q[ch.quality].fam === 'pow' && ch.base && Q[ch.base].fam !== 'pow' ? ch.base : ch.quality);
 
   /* ---------- Roman numerals ---------- */
 
@@ -132,6 +138,7 @@
       case 'sus2': return 'sus2';
       case 'sus': case 'sus4': return 'sus4';
       case '7sus4': return 'dom7sus4';
+      case '5': return 'pow5';
     }
     throw new Error('Unknown chord suffix "' + s + '"');
   }
@@ -166,7 +173,7 @@
 
   function romanText(ch) {
     const q = Q[ch.quality];
-    const lower = ['min', 'dim', 'hdim', 'dim7'].includes(q.fam);
+    const lower = ['min', 'dim', 'hdim', 'dim7'].includes(Q[harm(ch)].fam);
     if (ch.role === 'secondary' && ch.target) return 'V' + q.rn + '/' + romanText(Object.assign({}, ch.target, { quality: TRIAD_OF_FAMILY[Q[ch.target.quality].fam] || 'maj', role: null }));
     const n = ROMAN[ch.degree];
     return accText(ch.alter) + (lower ? n.toLowerCase() : n) + q.rn;
@@ -174,8 +181,8 @@
 
   // Base token used by the generator's transition tables ("V7/ii" → "VI", "ii7" → "ii").
   function baseToken(ch) {
-    const fam = Q[ch.quality].fam;
-    const triad = fam === 'sus' ? 'maj' : TRIAD_OF_FAMILY[fam];
+    const fam = Q[harm(ch)].fam;
+    const triad = fam === 'sus' || fam === 'pow' ? 'maj' : TRIAD_OF_FAMILY[fam];
     const n = ROMAN[ch.degree];
     const a = ch.alter < 0 ? 'b' : ch.alter > 0 ? '#' : '';
     if (triad === 'min') return a + n.toLowerCase();
@@ -194,8 +201,9 @@
   }
 
   function triadPcs(ch, key) {
-    const fam = Q[ch.quality].fam;
-    const ivs = fam === 'sus' ? Q[ch.quality].iv : Q[TRIAD_OF_FAMILY[fam]].iv;
+    const hq = harm(ch);
+    const fam = Q[hq].fam;
+    const ivs = fam === 'sus' || fam === 'pow' ? Q[hq].iv : Q[TRIAD_OF_FAMILY[fam]].iv;
     return ivs.map((i) => mod(key.tonic.pc + ch.rootPc + i, 12));
   }
   const isDiatonic = (ch, key) => triadPcs(ch, key).every((p) => key.pcs.has(p));
@@ -203,6 +211,6 @@
   C.theory = {
     LETTERS, SOLFEGE, MODES, ROMAN, MAJOR_STEPS, Q, TRIAD_OF_FAMILY, mod,
     spell, simplify, accText, noteName, tonicFor, makeKey, contextScales,
-    parseRoman, chordOn, romanText, baseToken, realize, triadPcs, isDiatonic, alterFor,
+    parseRoman, chordOn, romanText, harm, baseToken, realize, triadPcs, isDiatonic, alterFor,
   };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

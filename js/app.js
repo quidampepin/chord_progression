@@ -11,7 +11,7 @@
   const defaults = {
     lang: (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en',
     notation: 'letters', tonic: 0, mode: 'major', style: 'pop', length: 4, color: 0, adventure: 0.35,
-    ending: 'loop', smoothBass: true, view: 'guitar', pianoStyle: 'close', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
+    ending: 'loop', smoothBass: true, view: 'guitar', pianoStyle: 'close', tuning: 'standard', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
   };
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { saved = null; }
@@ -35,7 +35,8 @@
     const k = key();
     const realized = prog.chords.map((c) => T.realize(c, k));
     const piano = V.pianoVoicings(realized, { style: state.pianoStyle, smoothBass: state.smoothBass });
-    const guitar = V.guitarVoicings(realized, piano);
+    const tun = V.TUNINGS[state.tuning] || V.TUNINGS.standard;
+    const guitar = V.guitarVoicings(realized, piano, tun.midi);
     guitar.forEach((g, i) => { const p = shapePick[i]; if (p != null && g.shapes[p]) g.chosen = p; });
     derived = { key: k, realized, piano, guitar };
   }
@@ -159,7 +160,7 @@
 
   function chartText() {
     const k = derived.key;
-    const head = `Cadence — ${nn(k.tonic)} ${tr('modes.' + state.mode).toLowerCase()} · ${tr('styles.' + state.style)} · ${state.tempo} BPM`;
+    const head = `Cadence — ${nn(k.tonic)} ${tr('modes.' + state.mode).toLowerCase()} · ${tr('styles.' + state.style)} · ${state.tempo} BPM` + (state.tuning !== 'standard' ? ` · ${tr('tunings.' + state.tuning)} (${V.TUNINGS[state.tuning].names.join(' ')})` : '');
     const bars = [];
     prog.chords.forEach((c, i) => { (bars[c.bar] = bars[c.bar] || []).push(i); });
     const lines = [head, ''];
@@ -220,6 +221,7 @@
     fillSelect($('#length'), style.lengths.map((l) => [l, l + ' ' + tr('bars')]), state.length);
     fillSelect($('#instrument'), ['guitar', 'piano', 'pad'].map((s) => [s, tr('sounds.' + s)]), state.instrument);
     fillSelect($('#pattern'), ['pulse', 'block', 'arp'].map((s) => [s, tr('patterns.' + s)]), state.pattern);
+    fillSelect($('#tuning'), Object.keys(V.TUNINGS).map((k) => [k, tr('tunings.' + k) + ' · ' + V.TUNINGS[k].names.join(' ')]), state.tuning);
     fillSelect($('#piano-style'), ['close', 'drop2', 'shell'].map((s) => [s, tr('pianoStyles.' + s)]), state.pianoStyle);
     $('#adventure').value = state.adventure;
     $('#tempo').value = state.tempo;
@@ -233,6 +235,10 @@
     $$('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === state.lang)));
     $$('[data-notation]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.notation === state.notation)));
     $('#piano-style-wrap').hidden = state.view !== 'piano';
+    $('#tuning-wrap').hidden = state.view !== 'guitar';
+    // Power-chord styles (metal, punk): the first colour level is power chords, then triads.
+    const colorKeys = style.power ? ['colorPower', 'color0', 'color2'] : ['color0', 'color1', 'color2'];
+    $$('#color [data-color]').forEach((b, n) => { b.textContent = tr(colorKeys[n]); });
     $('#generate').title = tr('generate') + ' (G)';
     syncPlay();
   }
@@ -285,7 +291,7 @@
 
   function chordCard(i, canLock, half) {
     const c = prog.chords[i];
-    const fn = G.fnOf(c);
+    const fn = G.fnOf(c, state.mode);
     const g = derived.guitar[i];
     const visual = state.view === 'guitar'
       ? `<div class="gwrap">${D.guitar(g.shapes[g.chosen], derived.realized[i], { aria: symbolText(i) })}
@@ -321,7 +327,7 @@
     const r = derived.realized[i];
     const pv = derived.piano[i];
     const g = derived.guitar[i];
-    const fn = G.fnOf(c);
+    const fn = G.fnOf(c, state.mode);
     const marks = new Map();
     marks.set(pv.bass, { label: (r.tones.find((t) => t.pc === pv.bassPc) || {}).label || '', cls: pv.bassPc === r.root.pc ? 'root' : 'tone' });
     pv.upper.forEach((m) => { const t = r.tones.find((x) => x.pc === m % 12) || {}; marks.set(m, { label: t.label || '', cls: t.label === 'R' ? 'root' : 'tone' }); });
@@ -338,8 +344,8 @@
       </div>
       <div class="focus-grid">
         <div class="focus-guitar">
-          <h3 class="h3">${esc(tr('shapes'))}</h3>
-          <div class="big-g">${D.guitar(g.shapes[g.chosen], r, { aria: symbolText(i) })}</div>
+          <h3 class="h3">${esc(tr('shapes'))} · ${esc(tr('tunings.' + state.tuning))}</h3>
+          <div class="big-g">${D.guitar(g.shapes[g.chosen], r, { aria: symbolText(i), names: (V.TUNINGS[state.tuning] || V.TUNINGS.standard).names })}</div>
           <div class="alts">${shapes}</div>
         </div>
         <div class="focus-piano">
@@ -354,8 +360,9 @@
   function renderAnalysis() {
     const k = derived.key;
     const items = G.analyze(prog, k, state.ending);
-    $('#flow').innerHTML = prog.chords.map((c, i) => { const f = G.fnOf(c); return `<span class="flow-step fn-${f}" title="${esc(tr('fn.' + f))}">${esc(tr('fnShort.' + f))}</span>`; }).join('<span class="flow-arrow" aria-hidden="true">→</span>');
-    const lt = (i) => { const t = derived.realized[i].tones.find((x) => x.label === '3'); return t ? nn(t) : ''; };
+    $('#flow').innerHTML = prog.chords.map((c, i) => { const f = G.fnOf(c, state.mode); return `<span class="flow-step fn-${f}" title="${esc(tr('fn.' + f))}">${esc(tr('fnShort.' + f))}</span>`; }).join('<span class="flow-arrow" aria-hidden="true">→</span>');
+    // Leading tone = the major 3rd; power chords have none, so spell the chord they stand for.
+    const lt = (i) => { const t = T.realize(Object.assign({}, prog.chords[i], { quality: T.harm(prog.chords[i]) }), k).tones.find((x) => x.label === '3'); return t ? nn(t) : ''; };
     const lines = items.map((it) => {
       const vars = {
         a: it.i != null ? chordRef(it.i) : '',
@@ -412,6 +419,7 @@
     $('#adventure').addEventListener('input', (e) => { state.adventure = +e.target.value; persist(); });
     $('#adventure').addEventListener('change', () => generate());
     $('#smooth-bass').addEventListener('change', (e) => { state.smoothBass = e.target.checked; shapePick = {}; refresh(true); });
+    $('#tuning').addEventListener('change', (e) => { state.tuning = e.target.value; shapePick = {}; refresh(true); });
     $('#piano-style').addEventListener('change', (e) => { state.pianoStyle = e.target.value; refresh(true); });
     $('#instrument').addEventListener('change', (e) => { state.instrument = e.target.value; persist(); restartIfPlaying(); });
     $('#pattern').addEventListener('change', (e) => { state.pattern = e.target.value; persist(); restartIfPlaying(); });

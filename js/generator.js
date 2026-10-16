@@ -77,6 +77,28 @@
       vi:   { IV: 2, bVII: 2, v: 1.5, ii: 1 },
       bVII: { I: 3.5, IV: 3, v: 1 },
     },
+    phrygian: {
+      i:    { bII: 4, bIII: 2, iv: 1.5, bVI: 2, bvii: 2 },
+      bII:  { i: 5, bIII: 1.5, bvii: 0.6 },
+      bIII: { bII: 3, iv: 1.5, i: 1.5, bVI: 1 },
+      iv:   { bII: 1.5, i: 2.5, bvii: 1.5, bIII: 1 },
+      bVI:  { bvii: 2.5, bII: 2, i: 2 },
+      bvii: { i: 3.5, bII: 1.5, bVI: 1 },
+    },
+    phrygianDom: {
+      I:    { bII: 4, iv: 2, bvii: 2 },
+      bII:  { I: 5, bvii: 1 },
+      iv:   { bII: 2, I: 2.5, bvii: 1 },
+      bvii: { bII: 2.5, I: 3, iv: 1 },
+    },
+    lydian: {
+      I:   { II: 4, vi: 1.5, V: 1.5, vii: 0.8 },
+      II:  { I: 4, V: 1.5, vi: 1 },
+      iii: { II: 1.5, vi: 1.5 },
+      V:   { I: 3, II: 1.5, vi: 1 },
+      vi:  { II: 2, V: 1.5, I: 1 },
+      vii: { I: 3, II: 1.2, iii: 0.6 },
+    },
   };
   // Chords borrowed from outside the mode — only unlocked as "adventure" rises.
   const BORROW = {
@@ -97,19 +119,28 @@
     },
     dorian: { i: { bVI: 0.5 }, bVI: { bVII: 3, i: 1 } },
     mixolydian: { I: { iv: 0.6, bVI: 0.4 }, iv: { I: 3 }, bVI: { bVII: 3, I: 1 } },
+    phrygian: { i: { V: 0.3 }, V: { i: 4 } },
+    phrygianDom: { iv: { bIII: 2 }, bIII: { bII: 4 }, I: { bIII: 0.4 } },
+    lydian: { I: { iv: 0.3 }, iv: { I: 3 } },
   };
   const START = {
     major: { I: 6, vi: 1.5, IV: 1.5, ii: 0.6 },
     minor: { i: 6, bVI: 1.2, iv: 0.8 },
     dorian: { i: 6, IV: 0.8 },
     mixolydian: { I: 6, bVII: 0.6 },
+    phrygian: { i: 6, bII: 0.5 },
+    phrygianDom: { I: 6, iv: 0.8 },
+    lydian: { I: 6 },
   };
-  const TONIC = { major: 'I', minor: 'i', dorian: 'i', mixolydian: 'I' };
+  const TONIC = { major: 'I', minor: 'i', dorian: 'i', mixolydian: 'I', phrygian: 'i', phrygianDom: 'I', lydian: 'I' };
   const CADENCES = {
     major: [['V', 'I'], ['IV', 'V', 'I'], ['ii', 'V', 'I']],
     minor: [['V', 'i'], ['iv', 'V', 'i'], ['bVI', 'bVII', 'i']],
     dorian: [['bVII', 'i'], ['IV', 'bVII', 'i']],
     mixolydian: [['bVII', 'I'], ['IV', 'bVII', 'I']],
+    phrygian: [['bII', 'i'], ['bvii', 'i'], ['iv', 'bII', 'i']],
+    phrygianDom: [['bII', 'I'], ['iv', 'bII', 'I']],
+    lydian: [['II', 'I'], ['V', 'I'], ['vi', 'II', 'I']],
   };
 
   /* ---------- styles ----------
@@ -244,7 +275,7 @@
       ],
     },
     cinematic: {
-      modes: ['minor', 'major'], lengths: [4, 8], defColor: 1, tempo: 72,
+      modes: ['minor', 'major', 'lydian'], lengths: [4, 8], defColor: 1, tempo: 72,
       boost: { bVI: 1.8, bIII: 1.4, bVII: 1.4, iv: 1.3, ii: 0.6, 'ii°': 0.3 },
       passes: { sec: 0.1, tri: 0, mix: 0.45 },
       color: { 1: { maj: ['add9', 'maj7'], min: ['madd9', 'min7'], dom: ['dom7sus4', 'dom7'] }, 2: { maj: ['maj9', 'add9', 'sus2'], min: ['madd9', 'min9', 'min11'], dom: ['dom7sus4', 'dom7b9'] } },
@@ -259,6 +290,150 @@
         tpl('I | III | IV | iv', 'Chromatic mediant', 'Médiante chromatique', 'major', 0.7),
         tpl('IV | V | vi | vi', 'Epic rise', 'Montée épique', 'major', 0.2),
         tpl('vi | IV | I | V', 'Uplifting loop', 'Boucle lumineuse', 'major', 0),
+        tpl('I | II | I | II', 'Lydian wonder', 'Émerveillement lydien', 'lydian', 0.2),
+        tpl('I | II | vi | V', 'Lydian flight', 'Envol lydien', 'lydian', 0.5),
+      ],
+    },
+    metal: {
+      modes: ['minor', 'phrygian', 'phrygianDom', 'dorian'], lengths: [4, 8], defColor: 0, tempo: 140, power: true,
+      boost: { bII: 1.8, bVI: 1.6, bVII: 1.5, bIII: 1.2, v: 1.1, V: 0.4, 'ii°': 0.2, ii: 0.5 },
+      passes: { sec: 0, tri: 0, mix: 0 },
+      color: { 1: { maj: ['maj'], min: ['min'], dom: ['maj'], hdim: ['dim'], dim: ['dim'] }, 2: { maj: ['add9', 'sus2', 'maj'], min: ['madd9', 'min'], dom: ['dom7sus4', 'maj'], hdim: ['dim'], dim: ['dim'] } },
+      t: [
+        tpl('i | bVI | bVII | i', 'Heroic gallop', 'Galop héroïque', 'minor', 0),
+        tpl('i | bVII | bVI | bVII', 'Aeolian riff', 'Riff éolien', 'minor', 0.1),
+        tpl('i | bVI | bIII | bVII', 'Power ballad', 'Ballade power', 'minor', 0.2),
+        tpl('i | iv | bVI | V', 'Neoclassical lift', 'Élan néoclassique', 'minor', 0.5),
+        tpl('i | bII | i | bVII', 'Phrygian stab', 'Coup phrygien', 'minor', 0.6),
+        tpl('i | bVI | bVII | i | i | bVI | bVII | V', 'Epic gallop', 'Galop épique', 'minor', 0.4),
+        tpl('i | bII | i | bII', 'Phrygian chug', 'Chug phrygien', 'phrygian', 0),
+        tpl('i | bII | bIII | bII', 'Phrygian climb', 'Montée phrygienne', 'phrygian', 0.3),
+        tpl('i | bVI | bvii | i', 'Dark march', 'Marche sombre', 'phrygian', 0.4),
+        tpl('I | bII | I | bII', 'Phrygian-dominant riff', 'Riff phrygien dominant', 'phrygianDom', 0.1),
+        tpl('iv | bIII | bII | I', 'Andalusian descent', 'Descente andalouse', 'phrygianDom', 0.4),
+        tpl('I | bII | bvii | bII', 'Snake-charmer riff', 'Riff charmeur de serpent', 'phrygianDom', 0.6),
+        tpl('i | IV | bVII | i', 'Dorian groove metal', 'Groove métal dorien', 'dorian', 0.3),
+        tpl('i | bIII | IV | i', 'Dorian riff', 'Riff dorien', 'dorian', 0.4),
+      ],
+    },
+    punk: {
+      modes: ['major', 'minor', 'mixolydian'], lengths: [4, 8], defColor: 0, tempo: 172, power: true,
+      boost: { IV: 1.5, V: 1.4, vi: 1.2, bVII: 1.3, ii: 0.4, iii: 0.3, 'vii°': 0.05, 'ii°': 0.1 },
+      passes: { sec: 0, tri: 0, mix: 0 },
+      color: { 1: { maj: ['maj'], min: ['min'], dom: ['maj'] }, 2: { maj: ['sus2', 'add9', 'maj'], min: ['min7', 'min'], dom: ['maj'] } },
+      t: [
+        tpl('I | IV | V | IV', 'Three-chord punk', 'Punk à trois accords', 'major', 0),
+        tpl('I | V | vi | IV', 'Pop-punk axis', 'Axe pop-punk', 'major', 0.1),
+        tpl('vi | IV | I | V', 'Emo rotation', 'Rotation emo', 'major', 0.2),
+        tpl('I | IV | I | V', 'Garage punk', 'Punk garage', 'major', 0),
+        tpl('I | bVII | IV | I', 'Mixolydian punk', 'Punk mixolydien', 'mixolydian', 0.2),
+        tpl('i | bVI | bIII | bVII', 'Minor punk anthem', 'Hymne punk mineur', 'minor', 0.1),
+        tpl('i | bVII | bVI | bVII', 'Dark punk', 'Punk sombre', 'minor', 0.2),
+      ],
+    },
+    funk: {
+      modes: ['dorian', 'mixolydian', 'minor', 'major'], lengths: [4, 8], defColor: 2, tempo: 104, domMajors: true,
+      boost: { IV: 1.6, bVII: 1.4, ii: 1.1, iii: 0.5 },
+      passes: { sec: 0.2, tri: 0.2, mix: 0.1 },
+      color: { 1: { min: ['min7'], dom: ['dom7'] }, 2: { min: ['min9', 'min11', 'min7'], dom: ['dom9', 'dom13', 'dom7sus4'] } },
+      t: [
+        tpl('i7 | IV7 | i7 | IV7', 'Dorian funk vamp', 'Vamp funk dorien', 'dorian', 0),
+        tpl('i7 | i7 | IV7 | IV7', 'Two-chord groove', 'Groove à deux accords', 'dorian', 0.1),
+        tpl('i7 | bIII7 | IV7 | i7', 'Dorian strut', 'Démarche dorienne', 'dorian', 0.4),
+        tpl('I7 | I7 | IV7 | I7', 'One-chord funk', 'Funk sur un accord', 'mixolydian', 0),
+        tpl('I7 | bVII7 | IV7 | I7', 'Mixolydian funk', 'Funk mixolydien', 'mixolydian', 0.3),
+        tpl('I7 | IV7 | I7 | IV7', 'Hard-funk vamp', 'Vamp hard-funk', 'major', 0.1),
+        tpl('ii7 | V7 | ii7 | V7', 'ii–V vamp', 'Vamp ii–V', 'major', 0.4),
+        tpl('i7 | iv7 | i7 | bVII7', 'Minor funk', 'Funk mineur', 'minor', 0.2),
+      ],
+    },
+    gospel: {
+      modes: ['major', 'minor'], lengths: [4, 8], defColor: 2, tempo: 76,
+      boost: { IV: 1.4, iii: 1.3, vi: 1.3, ii: 1.3 },
+      passes: { sec: 0.6, tri: 0.2, mix: 0.45 },
+      color: { 2: { maj: ['maj9', 'maj69', 'maj7'], min: ['min9', 'min11', 'min7'], dom: ['dom13', 'dom9', 'dom7b9', 'dom7sus4'] } },
+      t: [
+        tpl('I | V7/IV | IV | iv', 'Gospel lift (I–I7–IV–iv)', 'Élan gospel (I–I7–IV–iv)', 'major', 0.2),
+        tpl('I | iii | IV | iv', 'Gospel walk-up', 'Montée gospel', 'major', 0.3),
+        tpl('vi7 | ii7 | V7 | Imaj7', 'Circle home', 'Retour par le cycle', 'major', 0.1),
+        tpl('I | V7/vi | vi | V7/IV | IV | iv | I | V', 'Church cycle', 'Cycle d’église', 'major', 0.5),
+        tpl('IV | V7/vi | vi | V7/IV | IV | V | I | I', 'Sunday turnaround', 'Turnaround du dimanche', 'major', 0.6),
+        tpl('IVmaj7 | iii7 | vi7 | ii7 V7', '4–3–6–2–5', '4–3–6–2–5', 'major', 0.4),
+        tpl('i | iv | V7 | i', 'Minor gospel', 'Gospel mineur', 'minor', 0.1),
+        tpl('i7 | iv7 | bVII7 | bIIImaj7', 'Minor praise', 'Louange mineure', 'minor', 0.4),
+      ],
+    },
+    bossa: {
+      modes: ['major', 'minor'], lengths: [4, 8], defColor: 2, tempo: 130,
+      boost: { ii: 1.8, V: 1.3, vi: 1.2, iii: 1.1 },
+      passes: { sec: 0.5, tri: 0.45, mix: 0.2 },
+      color: { 2: { maj: ['maj9', 'maj69', 'maj7'], min: ['min9', 'min7', 'min6'], dom: ['dom9', 'dom13', 'dom7b9'] } },
+      t: [
+        tpl('Imaj7 | V7/V | ii7 | bII7', 'Ipanema turnaround', 'Turnaround Ipanema', 'major', 0.4),
+        tpl('Imaj7 | Imaj7 | V7/V | V7/V | ii7 | bII7 | Imaj7 | bII7', 'Bossa A section', 'Section A bossa', 'major', 0.5),
+        tpl('ii7 | V7 | Imaj7 | V7/ii', 'Bossa ii–V', 'ii–V bossa', 'major', 0.2),
+        tpl('Imaj7 | vi7 | ii7 | V7', 'Bossa I–vi–ii–V', 'I–vi–ii–V bossa', 'major', 0),
+        tpl('i6 | iv7 | V7 | i6', 'Minor bossa', 'Bossa mineure', 'minor', 0.1),
+        tpl('iiø7 | V7 | i7 | bVImaj7', 'Saudade cycle', 'Cycle saudade', 'minor', 0.4),
+      ],
+    },
+    country: {
+      modes: ['major', 'mixolydian'], lengths: [4, 8], defColor: 0, tempo: 112,
+      boost: { IV: 1.6, V: 1.5, ii: 0.6, iii: 0.3, vi: 0.9 },
+      passes: { sec: 0.3, tri: 0, mix: 0.05 },
+      color: { 1: { maj: ['maj6', 'maj'], min: ['min7'], dom: ['dom7'] }, 2: { maj: ['maj6', 'add9', 'sus2'], min: ['min7'], dom: ['dom7', 'dom9'] } },
+      t: [
+        tpl('I | IV | V | I', 'Three chords and the truth', 'Trois accords et la vérité', 'major', 0),
+        tpl('I | IV | I | V | I | IV | V | I', 'Country verse', 'Couplet country', 'major', 0),
+        tpl('I | V7/V | V | I', 'Swing to the II7', 'Détour par le II7', 'major', 0.4),
+        tpl('I | V7/IV | IV | I', 'Honky-tonk', 'Honky-tonk', 'major', 0.3),
+        tpl('I | vi | IV | V', 'Country ballad', 'Ballade country', 'major', 0.1),
+        tpl('I | I | IV | IV | I | V7/V | V | I', 'Two-step', 'Two-step', 'major', 0.5),
+        tpl('I | bVII | IV | I', 'Outlaw country', 'Country outlaw', 'mixolydian', 0.3),
+      ],
+    },
+    reggae: {
+      modes: ['major', 'minor'], lengths: [4, 8], defColor: 0, tempo: 76,
+      boost: { IV: 1.4, ii: 1.3, V: 1.1, bVII: 1.3, iii: 0.5 },
+      passes: { sec: 0.05, tri: 0, mix: 0.05 },
+      color: { 1: { maj: ['maj', 'maj7'], min: ['min7'], dom: ['dom7', 'maj'] }, 2: { maj: ['maj7', 'add9'], min: ['min7', 'min9'], dom: ['dom7'] } },
+      t: [
+        tpl('I | IV | I | IV', 'Skank vamp', 'Vamp skank', 'major', 0),
+        tpl('I | IV | V | IV', 'Roots rock', 'Roots rock', 'major', 0.1),
+        tpl('I | V | vi | IV', 'Lovers rock', 'Lovers rock', 'major', 0.2),
+        tpl('ii | V | ii | V', 'Two-chord riddim', 'Riddim à deux accords', 'major', 0.3),
+        tpl('i | bVII | i | bVII', 'One-drop minor', 'One-drop mineur', 'minor', 0),
+        tpl('i | iv | i | iv', 'Dub minor', 'Dub mineur', 'minor', 0.1),
+        tpl('i | bVII | bVI | bVII', 'Steppers', 'Steppers', 'minor', 0.3),
+      ],
+    },
+    synthwave: {
+      modes: ['minor', 'major', 'lydian'], lengths: [4, 8], defColor: 1, tempo: 118,
+      boost: { bVI: 1.7, bVII: 1.5, bIII: 1.3, IV: 1.2, vi: 1.3 },
+      passes: { sec: 0.05, tri: 0, mix: 0.25 },
+      color: { 1: { maj: ['maj7', 'add9'], min: ['min7', 'madd9'], dom: ['dom7sus4', 'maj'] }, 2: { maj: ['maj9', 'add9'], min: ['min9', 'madd9'], dom: ['dom7sus4'] } },
+      t: [
+        tpl('i | bVI | bIII | bVII', 'Night drive', 'Conduite de nuit', 'minor', 0),
+        tpl('bVI | bVII | i | i', 'Lift into the drop', 'Montée vers le drop', 'minor', 0.2),
+        tpl('i | bVII | bVI | bVII', 'Neon loop', 'Boucle néon', 'minor', 0.1),
+        tpl('i | bIII | bVII | bVI', 'Retro pulse', 'Pulsation rétro', 'minor', 0.3),
+        tpl('vi | IV | I | V', 'Festival anthem', 'Hymne de festival', 'major', 0),
+        tpl('IV | V | vi | vi', 'Build-up', 'Montée', 'major', 0.2),
+        tpl('I | II | I | II', 'Lydian shimmer', 'Miroitement lydien', 'lydian', 0.3),
+      ],
+    },
+    flamenco: {
+      modes: ['phrygianDom', 'minor', 'phrygian'], lengths: [4, 8], defColor: 0, tempo: 108,
+      boost: { bII: 1.8, iv: 1.3, bIII: 1.3, bVII: 1.3, bVI: 1.3 },
+      passes: { sec: 0, tri: 0, mix: 0 },
+      color: { 1: { maj: ['maj', 'maj7'], min: ['min'], dom: ['dom7'] }, 2: { maj: ['maj7', 'maj'], min: ['min7', 'min'], dom: ['dom7b9', 'dom7'] } },
+      t: [
+        tpl('iv | bIII | bII | I', 'Andalusian cadence', 'Cadence andalouse', 'phrygianDom', 0),
+        tpl('I | bII | I | bII', 'Phrygian vamp', 'Vamp phrygien', 'phrygianDom', 0.1),
+        tpl('I | bII | bIII | bII', 'Soleá-style climb', 'Montée façon soleá', 'phrygianDom', 0.4),
+        tpl('I | iv | bIII | bII | I | iv | bII | I', 'Flamenco falseta', 'Falseta flamenca', 'phrygianDom', 0.5),
+        tpl('i | bVII | bVI | V', 'Andalusian cadence (minor)', 'Cadence andalouse (mineur)', 'minor', 0),
+        tpl('i | bII | i | bII', 'Dark Phrygian', 'Phrygien sombre', 'phrygian', 0.3),
       ],
     },
   };
@@ -278,14 +453,16 @@
     for (const a in MATRIX[mode]) for (const b in MATRIX[mode][a]) s.add(b);
     return [...s];
   }
-  function fnOf(ch) {
+  // Harmonic function. In Phrygian modes ♭II is the chord that resolves home, so it acts as the dominant.
+  function fnOf(ch, mode) {
     if (ch.role) return 'D';
     const r = ch.rootPc;
     if (r === 0 || r === 9 || r === 4 || r === 3) return 'T';
     if (r === 7 || r === 11 || r === 10) return 'D';
+    if (r === 1 && (mode === 'phrygian' || mode === 'phrygianDom')) return 'D';
     return 'PD';
   }
-  const tokFn = (tok) => fnOf(T.parseRoman(tok));
+  const tokFn = (tok, mode) => fnOf(T.parseRoman(tok), mode);
 
   /* ---------- functional walk ---------- */
   function scoreSeq(seq, ctx) {
@@ -303,7 +480,7 @@
     } else if (ending === 'resolve') {
       if (seq[n - 1] !== tonic) s -= 12;
     } else if (ending === 'half') {
-      if (tokFn(seq[n - 1]) !== 'D') s -= 2.5;
+      if (tokFn(seq[n - 1], mode) !== 'D') s -= 2.5;
     }
     const counts = {};
     seq.forEach((t) => (counts[t] = (counts[t] || 0) + 1));
@@ -468,6 +645,7 @@
   function colorize(ch, ctx, r) {
     const q = Q[ch.quality];
     const level = ctx.color;
+    if (level === 0 && ctx.style.power) return ['dim', 'hdim', 'dim7'].includes(q.fam) ? 'dim' : 'pow5';
     if (q.fam === 'sus') return ch.quality;
     if (ch.quality === 'dom7sus4') return level === 0 ? 'sus4' : ch.quality;
     if (level === 0) return T.TRIAD_OF_FAMILY[q.fam];
@@ -565,6 +743,8 @@
   }
 
   /* ---------- analysis ---------- */
+  // The chord that gives each mode its flavour (root, in semitones above the tonic).
+  const SIGNATURE = { dorian: 5, mixolydian: 10, phrygian: 1, phrygianDom: 1, lydian: 2 };
   function analyze(prog, key, ending) {
     const ch = prog.chords;
     const n = ch.length;
@@ -576,10 +756,10 @@
       else if (c.role === 'tritone') items.push({ k: 'tritone', i });
       else if (!T.triadPcs(c, key).every((p) => modeSet.has(p))) {
         if (key.mode === 'minor' && c.rootPc === 7) items.push({ k: 'harmonicV', i });
-        else if (c.rootPc === 1 && Q[c.quality].fam === 'maj') items.push({ k: 'neapolitan', i });
+        else if (c.rootPc === 1 && Q[T.harm(c)].fam === 'maj') items.push({ k: 'neapolitan', i });
         else if (T.triadPcs(c, parallel).every((p) => parallel.pcs.has(p))) items.push({ k: 'borrowed', i, from: parallel.mode });
         else items.push({ k: 'chromatic', i });
-      } else if ((key.mode === 'dorian' && c.rootPc === 5 && Q[c.quality].fam !== 'min') || (key.mode === 'mixolydian' && c.rootPc === 10)) {
+      } else if (SIGNATURE[key.mode] === c.rootPc && (key.mode !== 'dorian' || Q[T.harm(c)].fam !== 'min')) {
         items.push({ k: 'modal', i });
       }
     });
@@ -593,22 +773,23 @@
       const a = ch[i], b = ch[j];
       const step = mod(b.rootPc - a.rootPc, 12);
       if (step === 5) fifths++;
-      const aFam = Q[a.quality].fam;
+      const aFam = Q[T.harm(a)].fam;
       if (a.rootPc === 7 && aFam !== 'min' && !a.role && b.rootPc === 0) items.push({ k: 'authentic', i, j });
       else if (a.rootPc === 7 && !a.role && (b.rootPc === 9 || b.rootPc === 8)) items.push({ k: 'deceptive', i, j });
       else if (a.rootPc === 5 && b.rootPc === 0) items.push({ k: aFam === 'min' && key.mode !== 'minor' && key.mode !== 'dorian' ? 'minorPlagal' : 'plagal', i, j });
       else if (a.rootPc === 10 && b.rootPc === 0) items.push({ k: 'backdoor', i, j });
+      else if (a.rootPc === 1 && b.rootPc === 0 && !a.role) items.push({ k: 'phrygianCad', i, j });
       if (j > i && j + 1 < n && a.rootPc === 2 && b.rootPc === 7 && ch[j + 1].rootPc === 0) items.push({ k: 'iiVI', i, j });
     }
     const roots = ch.map((c) => c.rootPc).join(',');
     if (/(^|,)0,10,8,7(,|$)/.test(roots)) items.push({ k: 'andalusian' });
     if (pairs.length >= 3 && fifths / pairs.length >= 0.5) items.push({ k: 'fifths' });
     const last = ch[n - 1];
-    if (ending === 'loop' && fnOf(last) === 'D') items.push({ k: 'turnaround', i: n - 1 });
+    if (ending === 'loop' && fnOf(last, key.mode) === 'D') items.push({ k: 'turnaround', i: n - 1 });
     // Keep it readable: one item per kind for cadences, max 6.
     const seen = new Set();
     const out = items.filter((it) => {
-      const sig = it.k + (['secondary', 'tritone', 'borrowed', 'chromatic', 'modal', 'neapolitan'].includes(it.k) ? ':' + it.i : '');
+      const sig = it.k + (['secondary', 'tritone', 'borrowed', 'chromatic', 'modal', 'neapolitan'].includes(it.k) ? ':' + T.baseToken(ch[it.i]) + ch[it.i].quality : ''); // one note per distinct chord
       if (seen.has(sig)) return false;
       seen.add(sig);
       return true;

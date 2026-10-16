@@ -22,4 +22,11 @@ Open `index.html` in a browser (double-click works, no server needed).
 3. **Colour** — Triads, sevenths or extended. An extension is only added if its notes belong to the chord's key context. So iii gets m7, never m9 (the 9th is out of key), and V in a minor key gets 7♭9.
 4. **Voicings** — Piano: close, drop 2 or shell voicings, chosen so the hands move as little as possible. "Smooth bass" allows inversions (C/E) when they make the bass walk by step. Guitar: every playable shape (max 4 fingers, barres detected, max 4-fret span), ranked, then chosen so you stay in one area of the neck. Cycle through them with ‹ ›.
 
+## Styles, modes and tunings
+
+- **16 styles**: pop, rock, jazz, blues, neo-soul, folk, cinematic, metal, punk, funk, gospel, bossa nova, country, reggae, synthwave/EDM, flamenco.
+- **7 modes**: major, minor, Dorian, Mixolydian, Phrygian, Phrygian dominant, Lydian. In the Phrygian modes, ♭II is treated as the chord that resolves home (the "E–F" metal/flamenco move).
+- **Power chords**: metal and punk start at "Power chords" (root + 5th). The chord still keeps its harmonic identity (i, ♭VI…) for the analysis.
+- **13 guitar tunings**: standard, half step down, D standard, drop D, drop C, drop B, open G, open D, open E, open C, DADGAD, 7-string standard, 7-string drop A. The shape finder searches whatever tuning is selected, so open tunings favour ringing open strings and drop tunings give one-finger power chords.
+
 Settings, the current progression and recent history are saved in the browser (localStorage).
