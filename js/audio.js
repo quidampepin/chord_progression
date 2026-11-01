@@ -179,16 +179,18 @@
     player.playing = false;
     clearTimeout(player.timer);
     cancelAnimationFrame(player.raf);
-    if (master && ctx) {
-      // Fade the old graph out and drop it, so notes already scheduled are silenced.
-      const old = master;
-      old.gain.cancelScheduledValues(ctx.currentTime);
-      old.gain.setValueAtTime(old.gain.value, ctx.currentTime);
-      old.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.06);
-      setTimeout(() => { try { old.disconnect(); } catch (e) { /* already gone */ } }, 120);
-      buildGraph();
-    }
+    silence();
     if (was && player.onStop) player.onStop();
+  }
+  // Fade the current graph out and drop it, so every note already scheduled goes quiet.
+  function silence() {
+    if (!master || !ctx) return;
+    const old = master;
+    old.gain.cancelScheduledValues(ctx.currentTime);
+    old.gain.setValueAtTime(old.gain.value, ctx.currentTime);
+    old.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.06);
+    setTimeout(() => { try { old.disconnect(); } catch (e) { /* already gone */ } }, 120);
+    buildGraph();
   }
   function audition(notes, instrument) {
     if (player.playing) return;
@@ -228,5 +230,16 @@
     return new Uint8Array(header.concat(trk, track));
   }
 
-  C.audio = { play, stop, audition, midiFile, get playing() { return player.playing; } };
+  // A melodic run (a scale up and down), in eighth notes. Returns the start time of each note in ms.
+  function run(notes, instrument, tempo) {
+    if (player.playing) return null;
+    ensure();
+    const step = 60 / tempo / 2;
+    const voice = VOICES[instrument] || piano;
+    const t0 = ctx.currentTime + 0.05;
+    notes.forEach((m, i) => voice(m, t0 + i * step, step * 1.7, i === 0 ? 1 : 0.8));
+    return notes.map((_, i) => 50 + i * step * 1000);
+  }
+
+  C.audio = { play, stop, audition, run, stopRun: silence, midiFile, get playing() { return player.playing; } };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

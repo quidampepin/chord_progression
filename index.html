@@ -104,6 +104,32 @@
     <p class="hint" data-i18n="shortcuts"></p>
   </section>
 
+  <section class="scales" aria-labelledby="scales-title">
+    <div class="scales-head">
+      <div class="scales-title-wrap">
+        <h2 class="h2" id="scales-title" data-i18n="scalesTitle"></h2>
+        <p class="scale-for" id="scale-for"></p>
+      </div>
+      <div class="scales-controls">
+        <div class="seg" role="group" id="scale-scope">
+          <button type="button" data-scope="key" data-i18n="scopeKey"></button>
+          <button type="button" data-scope="chord" data-i18n="scopeChord"></button>
+        </div>
+        <div class="seg" role="group" id="scale-labels">
+          <button type="button" data-lab="degrees" data-i18n="labDegrees"></button>
+          <button type="button" data-lab="names" data-i18n="labNames"></button>
+        </div>
+        <button type="button" class="btn-ghost" id="play-scale" data-i18n="playScale"></button>
+      </div>
+    </div>
+    <div class="chips" id="scale-options"></div>
+    <p class="scale-why" id="scale-why"></p>
+    <div class="chord-scales" id="chord-scales" hidden></div>
+    <div class="pos-row" id="pos-row"></div>
+    <div class="neck-wrap" id="neck"></div>
+    <p class="scale-legend"><span class="sl croot"><i></i><span data-i18n="lgChordRoot"></span></span><span class="sl ctone"><i></i><span data-i18n="lgChordTone"></span></span><span class="sl scale"><i></i><span data-i18n="lgScale"></span></span><span class="sl sroot"><i></i><span data-i18n="lgScaleRoot"></span></span><span class="sl avoid"><i></i><span data-i18n="lgAvoid"></span></span></p>
+  </section>
+
   <div class="lower">
     <section class="focus" aria-live="polite">
       <p class="eyebrow" data-i18n="selected"></p>
@@ -129,6 +155,7 @@
 <script src="js/theory.js"></script>
 <script src="js/generator.js"></script>
 <script src="js/voicing.js"></script>
+<script src="js/scales.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/diagrams.js"></script>

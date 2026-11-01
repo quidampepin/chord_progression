@@ -1,7 +1,7 @@
 /* Cadence — app controller: state, rendering, events. */
 (function (C) {
   'use strict';
-  const { theory: T, gen: G, voicing: V, audio: A, i18n: I, draw: D } = C;
+  const { theory: T, gen: G, voicing: V, audio: A, i18n: I, draw: D, scales: SC } = C;
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
   const esc = D.esc;
@@ -12,6 +12,7 @@
     lang: (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en',
     notation: 'letters', tonic: 0, mode: 'major', style: 'pop', length: 4, color: 0, adventure: 0.35,
     ending: 'loop', rhythm: 'varied', smoothBass: true, pianoStyle: 'close', tuning: 'standard', ukeTuning: 'ukeStd', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
+    scaleScope: 'key', keyScaleIdx: 0, scaleAnchor: null, posSystem: 'auto', scaleLabels: 'degrees',
   };
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { saved = null; }
@@ -114,6 +115,7 @@
       avoid: signature(prog), avoidTemplate: prog && prog.source && prog.source.p,
     });
     shapePick = {};
+    chordScalePick = {};
     selected = 0;
     refresh(true);
   }
@@ -164,6 +166,7 @@
     startPlayback();
   }
   function startPlayback() {
+    stopScale();
     A.play(events(), {
       tempo: state.tempo, loop: state.repeat, instrument: state.instrument, pattern: state.pattern,
       onStep: (i) => markPlaying(i),
@@ -392,6 +395,153 @@
           <p class="voicing-notes">${played.map((m) => { const t = r.tones.find((x) => x.pc === m % 12); return esc(nn(t || T.spell(0, m)) + (Math.floor(m / 12) - 1)); }).join(' · ')}</p>
         </div>
       </div>`;
+    renderScales();
+  }
+
+
+  /* ---------- scales to play over it ---------- */
+  let chordScalePick = {};
+  const SCALE_MODES = new Set(['ionian', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'aeolian', 'phrygianDom']);
+  function scaleFor(i) {
+    const k = derived.key;
+    if (state.scaleScope === 'key') {
+      const ks = SC.keyScale(k, state.style, prog.chords);
+      const idx = Math.min(state.keyScaleIdx || 0, ks.options.length - 1);
+      const o = ks.options[idx];
+      return { sc: SC.build(o.id, o.root), options: ks.options, idx, reason: null, extra: {} };
+    }
+    const cs = SC.chordScale(prog.chords[i], k, state.style);
+    const idx = Math.min(chordScalePick[i] || 0, cs.options.length - 1);
+    const o = cs.options[idx];
+    return { sc: SC.build(o.id, o.root), options: cs.options, idx, reason: cs.reason, extra: cs.extra };
+  }
+  const scaleName = (o) => `${nn(o.root)} ${tr('scaleNames.' + o.id)}`;
+  let scaleRun = [];
+
+  function scaleWhy(i, info) {
+    const sc = info.sc;
+    const name = scaleName(sc);
+    const ref = (j) => `\u0002${j}\u0002`;
+    let raw;
+    if (state.scaleScope === 'key') {
+      const id = sc.id;
+      const kind = SCALE_MODES.has(id) ? 'keyMode' : id === 'minorPent' || id === 'majorPent' ? 'keyPent' : id === 'blues' ? 'keyBlues' : id === 'majorBlues' ? 'keyMajorBlues' : 'keyHarm';
+      raw = tr('sw.' + kind, { scale: name });
+      const bluesish = state.style === 'blues' && ['blues', 'minorPent', 'majorBlues'].includes(id);
+      const cl = bluesish ? [] : SC.clashes(sc, prog.chords, derived.key);
+      const seen = new Set();
+      const names = cl.filter((j) => { const t = symbolText(j); if (seen.has(t)) return false; seen.add(t); return true; }).map(ref);
+      if (names.length) raw += ' ' + tr('sw.clash', { chords: names.join(', ') });
+    } else {
+      const changes = (info.extra.changes || []).map((c) => nn(c.from) + ' → ' + nn(c.to)).join(', ');
+      raw = tr('sw.' + info.reason, { chord: ref(i), root: nn(sc.root), scale: name, changes, target: info.extra.target ? nn(info.extra.target) + (info.extra.targetMinor ? 'm' : '') : '' });
+    }
+    const avoid = SC.avoidNotes(sc, prog.chords[i], derived.key);
+    if (avoid.length) raw += ' ' + tr('sw.avoid', { notes: avoid.map((pc) => nn(sc.notes.find((n) => n.pc === pc))).join(', '), chord: ref(i) });
+    else if (sc.notes.length === 5) raw += ' ' + tr('sw.noAvoid');
+    return esc(raw).replace(/\u0002(\d+)\u0002/g, (_, j) => chordRef(+j));
+  }
+
+  function renderScales() {
+    if (!derived) return;
+    const i = Math.min(selected, prog.chords.length - 1);
+    const info = scaleFor(i);
+    const sc = info.sc;
+    const r = derived.realized[i];
+    const chordTone = new Map(r.tones.map((t) => [t.pc, t.label]));
+    const labelOf = (pc) => { const n = sc.notes.find((x) => x.pc === pc); return n ? (state.scaleLabels === 'names' ? nn(n) : n.label) : ''; };
+    const avoid = new Set(SC.avoidNotes(sc, prog.chords[i], derived.key));
+    const clsOf = (pc) => { const ct = chordTone.get(pc); return (ct === 'R' ? 'croot' : ct ? 'ctone' : 'scale') + (pc === sc.root.pc ? ' sroot' : '') + (avoid.has(pc) ? ' avoid' : ''); };
+
+    $$('#scale-scope [data-scope]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === state.scaleScope)));
+    $$('#scale-labels [data-lab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lab === state.scaleLabels)));
+    $('#scale-for').innerHTML = state.scaleScope === 'key'
+      ? esc(tr('scaleForKey', { key: nn(derived.key.tonic) + ' ' + tr('modes.' + state.mode).toLowerCase() })) + ' · ' + esc(tr('targetsOf')) + ' ' + chordRef(i)
+      : esc(tr('scaleForChord')) + ' ' + chordRef(i);
+    $('#scale-options').innerHTML = info.options.map((o, k) => `<button type="button" class="chip${k === info.idx ? ' on' : ''}" data-scale="${k}" aria-pressed="${k === info.idx}">${esc(scaleName(o))}${k === 0 ? `<span class="chip-tag">${esc(tr('best'))}</span>` : ''}</button>`).join('');
+    $('#scale-why').innerHTML = scaleWhy(i, info);
+    syncScaleButton();
+
+    // Chord by chord: the whole map at a glance.
+    const cs = $('#chord-scales');
+    cs.hidden = state.scaleScope !== 'chord';
+    if (!cs.hidden) {
+      const seen = new Set();
+      cs.innerHTML = prog.chords.map((c, j) => {
+        const o = SC.chordScale(c, derived.key, state.style).options[Math.min(chordScalePick[j] || 0, 9)] || SC.chordScale(c, derived.key, state.style).options[0];
+        const sig = symbolText(j) + o.id;
+        if (seen.has(sig) && j !== i) return '';
+        seen.add(sig);
+        return `<button type="button" class="cs-item${j === i ? ' on' : ''}" data-act="select" data-i="${j}"><b>${esc(symbolText(j))}</b><span>${esc(scaleName(o))}</span></button>`;
+      }).join('');
+    }
+
+    const neckEl = $('#neck');
+    const posRow = $('#pos-row');
+    if (isFretted()) {
+      const tun = currentTuning();
+      const positions = SC.positions(sc, tun.midi, state.posSystem);
+      let pIdx = -1;
+      if (state.scaleAnchor != null && positions.length) {
+        let best = Infinity;
+        positions.forEach((p, k) => { const d = Math.abs(p.center - state.scaleAnchor); if (d < best) { best = d; pIdx = k; } });
+      }
+      const pos = pIdx >= 0 ? positions[pIdx] : null;
+      const maxF = Math.max(state.instrument === 'ukulele' ? 12 : 15, pos ? pos.maxF : 0);
+      const inPos = pos ? new Set(pos.notes.map((x) => x.s + ':' + x.f)) : null;
+      const notes = SC.wholeNeck(sc, tun.midi, maxF).map((x) => Object.assign(x, { label: labelOf(x.m % 12), cls: clsOf(x.m % 12), out: !!inPos && !inPos.has(x.s + ':' + x.f) }));
+      neckEl.innerHTML = D.neck(tun.midi, tun.names, notes, { maxF, window: pos ? [pos.minF, pos.maxF] : null, aria: scaleName(sc) });
+      const hepta = sc.notes.length === 7;
+      posRow.hidden = false;
+      posRow.innerHTML = `<span class="mini-label">${esc(tr('position'))}</span>
+        <div class="chips">
+          <button type="button" class="chip${!pos ? ' on' : ''}" data-pos="all" aria-pressed="${!pos}">${esc(tr('wholeNeck'))}</button>
+          ${positions.map((p, k) => `<button type="button" class="chip num${k === pIdx ? ' on' : ''}" data-pos="${k}" aria-pressed="${k === pIdx}" title="${esc(tr('frets', { a: p.minF, b: p.maxF }))}">${k + 1}</button>`).join('')}
+        </div>
+        ${hepta ? `<div class="seg" role="group" id="pos-system">
+          <button type="button" data-sys="auto" aria-pressed="${state.posSystem !== 'box'}">${esc(tr('threeNps'))}</button>
+          <button type="button" data-sys="box" aria-pressed="${state.posSystem === 'box'}">${esc(tr('boxShape'))}</button>
+        </div>` : ''}`;
+      scaleRun = SC.runNotes(sc, pos, tun.midi[0] + (state.instrument === 'ukulele' ? 0 : 5));
+    } else {
+      posRow.hidden = true;
+      const lo = 48 + sc.root.pc, hi = lo + 24;
+      const marks = new Map();
+      for (let m = lo; m <= hi; m++) if (sc.pcs.has(m % 12)) marks.set(m, { label: labelOf(m % 12), cls: clsOf(m % 12) });
+      neckEl.innerHTML = `<div class="big-kbd">${D.keyboard(lo, hi, marks, { labels: true, h: 64, aria: scaleName(sc) })}</div>`;
+      scaleRun = SC.runNotes(sc, null, 60);
+    }
+  }
+
+  // The scale button toggles: play the run, or stop it part-way.
+  let runTimers = [];
+  const scaleRunning = () => runTimers.length > 0;
+  function syncScaleButton() {
+    const b = $('#play-scale');
+    b.textContent = tr(scaleRunning() ? 'stopScale' : 'playScale');
+    b.setAttribute('aria-pressed', String(scaleRunning()));
+  }
+  function stopScale() {
+    if (!scaleRunning()) return;
+    runTimers.forEach(clearTimeout);
+    runTimers = [];
+    A.stopRun();
+    $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding'));
+    syncScaleButton();
+  }
+  function playScale() {
+    if (scaleRunning()) { stopScale(); return; }
+    if (A.playing) { toast(tr('stopFirst')); return; }
+    const notes = scaleRun.slice();
+    const times = A.run(notes, state.instrument, Math.max(80, state.tempo));
+    if (!times) return;
+    runTimers = times.map((ms, k) => setTimeout(() => {
+      $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding'));
+      $$(`.n-note[data-m="${notes[k]}"]`).forEach((el) => el.classList.add('is-sounding'));
+    }, ms));
+    // Finished on its own: clear the highlight and reset the button.
+    runTimers.push(setTimeout(() => { runTimers = []; $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding')); syncScaleButton(); }, times[times.length - 1] + 450));
+    syncScaleButton();
   }
 
   function chordRef(i) { return `<b class="cref">${esc(symbolText(i))}</b>`; }
@@ -451,6 +601,7 @@
       if (!st.lengths.includes(state.length)) state.length = st.lengths[0];
       state.color = st.defColor;
       state.tempo = st.tempo;
+      state.keyScaleIdx = 0;
       generate();
     });
     $('#length').addEventListener('change', (e) => { state.length = +e.target.value; generate(); });
@@ -498,13 +649,39 @@
     };
     $('#measures').addEventListener('click', onAct);
     $('#focus').addEventListener('click', onAct);
+    $('#scale-scope').addEventListener('click', (e) => { const b = e.target.closest('[data-scope]'); if (!b) return; state.scaleScope = b.dataset.scope; renderScales(); persist(); });
+    $('#scale-labels').addEventListener('click', (e) => { const b = e.target.closest('[data-lab]'); if (!b) return; state.scaleLabels = b.dataset.lab; renderScales(); persist(); });
+    $('#scale-options').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-scale]'); if (!b) return;
+      if (state.scaleScope === 'key') state.keyScaleIdx = +b.dataset.scale; else chordScalePick[Math.min(selected, prog.chords.length - 1)] = +b.dataset.scale;
+      renderScales(); persist();
+    });
+    $('#pos-row').addEventListener('click', (e) => {
+      const p = e.target.closest('[data-pos]');
+      if (p) {
+        if (p.dataset.pos === 'all') state.scaleAnchor = null;
+        else {
+          // Remember the area of the neck, not the number: as chords change, the nearest position is shown.
+          const i = Math.min(selected, prog.chords.length - 1);
+          const sc = scaleFor(i).sc;
+          const list = SC.positions(sc, currentTuning().midi, state.posSystem);
+          state.scaleAnchor = list[+p.dataset.pos].center;
+        }
+        renderScales(); persist(); return;
+      }
+      const s = e.target.closest('[data-sys]');
+      if (s) { state.posSystem = s.dataset.sys; renderScales(); persist(); }
+    });
+    $('#chord-scales').addEventListener('click', onAct);
+    $('#play-scale').addEventListener('click', playScale);
     $('#history').addEventListener('click', (e) => { const b = e.target.closest('[data-hist]'); if (b) restore(history[+b.dataset.hist]); });
 
     document.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (['input', 'select', 'textarea'].includes(tag)) return;
-      if (e.code === 'Space' && tag !== 'button') { e.preventDefault(); togglePlay(); }
+      if (e.key === 'Escape') { stopScale(); if (A.playing) A.stop(); return; }
+      if (e.code === 'Space' && tag !== 'button') { e.preventDefault(); if (scaleRunning()) stopScale(); else togglePlay(); }
       else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); generate(); }
     });
   }

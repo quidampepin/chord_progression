@@ -79,5 +79,35 @@
     return `<svg class="kbd" viewBox="0 0 ${whites.length * WW} ${WH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(opts.aria || '')}">${w}${b}</svg>`;
   }
 
-  C.draw = { guitar, keyboard, esc };
+  /* Full neck, drawn like tab: highest string on top, nut on the left.
+   * notes: [{s, f, m, label, cls, out}] · cls: 'croot' | 'ctone' | 'scale' (+ ' sroot') · out = outside the chosen position
+   */
+  function neck(tun, names, notes, opts) {
+    opts = opts || {};
+    const N = tun.length;
+    const maxF = opts.maxF || 15;
+    const fw = 44, x0 = 50, sp = 24, top = 18;
+    const W = x0 + maxF * fw + 14, H = top + (N - 1) * sp + 30;
+    const Y = (s) => top + (N - 1 - s) * sp;
+    const X = (f) => (f === 0 ? x0 - 15 : x0 + (f - 0.5) * fw);
+    let g = '';
+    // inlays
+    for (const f of [3, 5, 7, 9, 15, 17]) if (f <= maxF) g += `<circle class="n-inlay" cx="${x0 + (f - 0.5) * fw}" cy="${top + ((N - 1) * sp) / 2}" r="5"/>`;
+    if (maxF >= 12) { const cx = x0 + 11.5 * fw; g += `<circle class="n-inlay" cx="${cx}" cy="${top + sp * 0.5 + ((N - 1) * sp) / 2 - sp}" r="5"/><circle class="n-inlay" cx="${cx}" cy="${top + ((N - 1) * sp) / 2 + sp - sp * 0.5}" r="5"/>`; }
+    for (let f = 1; f <= maxF; f++) g += `<line class="n-fret" x1="${x0 + f * fw}" x2="${x0 + f * fw}" y1="${top}" y2="${top + (N - 1) * sp}"/>`;
+    g += `<rect class="n-nut" x="${x0 - 3}" y="${top - 2}" width="5" height="${(N - 1) * sp + 4}" rx="1"/>`;
+    for (let s = 0; s < N; s++) {
+      g += `<line class="n-string" x1="${x0}" x2="${x0 + maxF * fw}" y1="${Y(s)}" y2="${Y(s)}" style="stroke-width:${(0.8 + (s < N / 2 ? (N / 2 - s) * 0.35 : 0)).toFixed(2)}"/>`;
+      g += `<text class="n-name" x="2" y="${Y(s) + 4}">${esc(names[s])}</text>`;
+    }
+    for (const f of [3, 5, 7, 9, 12, 15, 17]) if (f <= maxF) g += `<text class="n-fnum" x="${x0 + (f - 0.5) * fw}" y="${H - 6}" text-anchor="middle">${f}</text>`;
+    if (opts.window) g += `<rect class="n-window" x="${Math.max(x0 - 28, x0 + (opts.window[0] - 1) * fw - 2)}" y="${top - 13}" width="${(opts.window[1] - Math.max(0, opts.window[0] - 1)) * fw + (opts.window[0] === 0 ? 28 : 4)}" height="${(N - 1) * sp + 26}" rx="10"/>`;
+    for (const n of notes) {
+      const cx = X(n.f), cy = Y(n.s);
+      g += `<g class="n-note ${n.cls}${n.out ? ' out' : ''}" data-m="${n.m}"><circle cx="${cx}" cy="${cy}" r="9.5"/><text x="${cx}" y="${cy + 3.4}" text-anchor="middle">${esc(n.label)}</text></g>`;
+    }
+    return `<svg class="neck" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || '')}">${g}</svg>`;
+  }
+
+  C.draw = { guitar, keyboard, neck, esc };
 })(window.Cadence = window.Cadence || {});

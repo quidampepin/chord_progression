@@ -8,6 +8,7 @@ Open `index.html` in a browser (double-click works, no server needed).
 |---|---|
 | `js/theory.js` | Note spelling (B♭, not A♯, in F major), modes, 24 chord qualities, Roman-numeral parser (`V7/ii`, `♭VII`, `iiø7`) |
 | `js/generator.js` | Templates per style + functional-harmony walk, re-harmonisation passes, colour pass, analysis |
+| `js/scales.js` | Scales to play over the progression: per-key and per-chord choices, positions on the neck |
 | `js/voicing.js` | Piano voice leading (shortest-path search) and guitar shape finder (standard tuning) |
 | `js/audio.js` | Web Audio synths (piano, pad, Karplus–Strong guitar), scheduler, MIDI export |
 | `js/diagrams.js` | SVG chord boxes and keyboards |
@@ -36,5 +37,19 @@ Open `index.html` in a browser (double-click works, no server needed).
 ## Instruments
 
 One switch (Guitar, Ukulele, Piano, Synth pad) drives the chart, the selected-chord panel and the sound together. Ukulele shapes are searched on 4 strings (standard high-G, low G, D tuning, baritone) without the root-in-the-bass rule, since a re-entrant ukulele has no bass string. The keyboard in the selected-chord panel always shows the exact notes the current instrument plays.
+
+## Scales to play over it
+
+- **Whole progression**: one scale for everything. It's the mode's scale, or a pentatonic or blues scale where the style calls for it (rock, country and folk lead with pentatonics, the blues with the blues scale). If a chord holds a different version of one of the scale's notes (V7 in a minor key, a borrowed ♭VII, a secondary dominant), the app warns you and names the chord.
+- **Chord by chord**: each chord gets its own scale, chosen with the same "key context" the colour pass uses. That context is the chord's notes plus the key's notes, read from the chord's root. Examples: ii7 → Dorian, V7 → Mixolydian, V7 in minor → Phrygian dominant, iiø7 → Locrian, secondary dominants → Mixolydian or Phrygian dominant depending on their target, tritone subs → Lydian dominant, °7 → whole–half diminished. Alternatives are offered next to the best fit.
+- **On the neck**: chord tones are highlighted as target notes, in sync with the selected or playing chord. Positions are 5 pentatonic boxes (2 notes per string), 7 three-notes-per-string patterns, or one-hand box shapes, for any tuning, 7-string and ukulele included. Pick a position and it stays in that area of the neck as the chords change.
+
+### How sure are the scale choices?
+
+`node tests/run.js` checks 71 textbook answers: the diatonic modes, Autumn Leaves, secondary dominants, a 12-bar blues, “Creep”, the Andalusian cadence, the Neapolitan, modal vamps, clash warnings, spelling, positions and function labels. Run it after any change to the theory code.
+
+- Chords outside the nearby keys use **least alteration**: keep the key's notes and change only what the chord needs. For example, E major in C changes G to G♯ and gives E Phrygian dominant.
+- The jazz minor tonic (i6) gets **melodic minor**. Half-diminished chords offer **Locrian ♮2** as the alternative, because Locrian's ♭2 is an avoid note.
+- **Avoid notes** (a scale note a half step above a chord tone, or only the 4th on dominant 7ths) are drawn with a dashed red ring. Pentatonics have none, which is why they feel safe.
 
 Settings, the current progression and recent history are saved in the browser (localStorage).
