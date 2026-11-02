@@ -14,6 +14,7 @@
     ending: 'loop', rhythm: 'varied', smoothBass: true, pianoStyle: 'close', tuning: 'standard', ukeTuning: 'ukeStd', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
     scaleScope: 'key', keyScaleIdx: 0, scaleAnchor: null, posSystem: 'auto', scaleLabels: 'degrees',
     panelTab: 'scales', lickId: null, lickFilter: 'all', lickFitOnly: true, lickSpeed: 0.75, learned: [],
+    lickScale: null, lickAnchor: null, extraKeyScale: null,
   };
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { saved = null; }
@@ -117,6 +118,7 @@
     });
     shapePick = {};
     chordScalePick = {};
+    state.extraKeyScale = null;
     selected = 0;
     refresh(true);
   }
@@ -410,7 +412,8 @@
     const k = derived.key;
     if (state.scaleScope === 'key') {
       const ks = SC.keyScale(k, state.style, prog.chords);
-      const idx = Math.min(state.keyScaleIdx || 0, ks.options.length - 1);
+      if (state.extraKeyScale && !ks.options.some((o) => o.id === state.extraKeyScale)) ks.options.push({ id: state.extraKeyScale, root: k.tonic });
+      const idx = Math.max(0, Math.min(state.keyScaleIdx || 0, ks.options.length - 1));
       const o = ks.options[idx];
       return { sc: SC.build(o.id, o.root), options: ks.options, idx, reason: null, extra: {} };
     }
@@ -470,7 +473,8 @@
       ? esc(tr('scaleForKey', { key: nn(derived.key.tonic) + ' ' + tr('modes.' + state.mode).toLowerCase() })) + ' · ' + esc(tr('targetsOf')) + ' ' + chordRef(i)
       : esc(tr('scaleForChord')) + ' ' + chordRef(i);
     $('#scale-options').innerHTML = info.options.map((o, k) => `<button type="button" class="chip${k === info.idx ? ' on' : ''}" data-scale="${k}" aria-pressed="${k === info.idx}">${esc(scaleName(o))}${k === 0 ? `<span class="chip-tag">${esc(tr('best'))}</span>` : ''}</button>`).join('');
-    $('#scale-why').innerHTML = scaleWhy(i, info);
+    const nLicks = LK.LICKS.filter((l) => l.scale === sc.id).length;
+    $('#scale-why').innerHTML = scaleWhy(i, info) + (nLicks ? ` <button type="button" class="link-btn" data-to-licks="${sc.id}">${esc(tr('licksInScale', { n: nLicks }))} →</button>` : '');
     syncScaleButton();
 
     // Chord by chord: the whole map at a glance.
@@ -563,14 +567,19 @@
   /* ---------- licks ---------- */
   let lickCtx = null;      // set while a lick plays over the progression
   let lickHi = -1;
-  function currentLickList() {
-    const all = LK.LICKS;
+  const SCALE_ORDER = ['minorPent', 'blues', 'majorPent', 'majorBlues', 'mixolydian', 'dorian', 'aeolian', 'harmonicMinor', 'phrygian', 'phrygianDom', 'ionian'];
+  function baseLickList() {
     const k = derived.key;
-    let list = state.lickFitOnly ? all.filter((l) => LK.fits(l, k, state.style)) : all.slice();
+    let list = state.lickFitOnly && !state.lickScale ? LK.LICKS.filter((l) => LK.fits(l, k, state.style)) : LK.LICKS.slice();
+    if (state.lickScale) list = list.filter((l) => l.scale === state.lickScale);
+    return list;
+  }
+  function currentLickList() {
+    let list = baseLickList();
     const f = state.lickFilter;
     if (f === 'turn') list = list.filter((l) => l.over === 'turn' || l.over === 'end');
     else if (f !== 'all') list = list.filter((l) => l.over === f);
-    return list;
+    return list.sort((a, b) => SCALE_ORDER.indexOf(a.scale) - SCALE_ORDER.indexOf(b.scale));
   }
   function currentLick() {
     const list = currentLickList();
@@ -582,21 +591,52 @@
     prog.chords.forEach((c, i) => { if (start <= beat) idx = i; start += c.beats; });
     return idx;
   }
+  // Same lick, chosen position: follow the remembered area of the neck, else the lick's own home position.
+  function lickRealized(l) {
+    const tun = lickTuning();
+    const base = LK.realize(l, derived.key, tun.midi);
+    let idx = base.posIndex;
+    if (state.lickAnchor != null && base.positions.length) {
+      let best = Infinity;
+      base.positions.forEach((p, i) => { const d = Math.abs(p.center - state.lickAnchor); if (d < best) { best = d; idx = i; } });
+    }
+    const r = idx === base.posIndex ? base : LK.realize(l, derived.key, tun.midi, idx);
+    return { r, base, tun };
+  }
+  const CHROMA_LETTER = [0, 0, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];
+  function pitchName(pc, sc) {
+    const inScale = sc.notes.find((n) => n.pc === pc) || derived.key.scale.find((n) => n.pc === pc);
+    return nn(inScale || T.spell(CHROMA_LETTER[pc], pc));
+  }
 
   function renderLicks() {
     if (!derived || state.panelTab !== 'licks') return;
+    const k = derived.key;
     const learned = new Set(state.learned);
     const list = currentLickList();
     const l = currentLick();
     $('#licks-sub').textContent = tr('licksSub', { n: LK.LICKS.length, m: LK.LICKS.filter((x) => learned.has(x.id)).length });
     $('#lick-fit').checked = state.lickFitOnly;
-    $('#lick-filters').innerHTML = ['all', 'I', 'IV', 'V', 'turn', 'any'].map((f) => `<button type="button" class="chip${state.lickFilter === f ? ' on' : ''}" data-lfilter="${f}" aria-pressed="${state.lickFilter === f}">${esc(tr('lickFilters.' + f))}</button>`).join('');
-    $('#lick-list').innerHTML = list.length ? list.map((x) => `
-      <li><button type="button" class="lick-item${l && x.id === l.id ? ' on' : ''}" data-lick="${x.id}" aria-pressed="${!!(l && x.id === l.id)}">
+    $('#lick-fit').disabled = !!state.lickScale;
+    const filters = ['all', 'I', 'IV', 'V', 'turn', 'any'].concat(baseLickList().some((x) => x.over === 'iiVI') ? ['iiVI'] : []);
+    if (!filters.includes(state.lickFilter)) state.lickFilter = 'all';
+    $('#lick-filters').innerHTML = (state.lickScale ? `<button type="button" class="chip on chip-x" data-lact="clearScale" title="${esc(tr('clearFilter'))}">${esc(tr('scaleFilter', { scale: scaleName({ id: state.lickScale, root: k.tonic }) }))} ✕</button>` : '')
+      + filters.map((f) => `<button type="button" class="chip${state.lickFilter === f ? ' on' : ''}" data-lfilter="${f}" aria-pressed="${state.lickFilter === f}">${esc(tr('lickFilters.' + f))}</button>`).join('');
+    // list, grouped by the scale each lick comes from
+    let html = '', group = null;
+    for (const x of list) {
+      if (x.scale !== group) {
+        group = x.scale;
+        const count = list.filter((y) => y.scale === group).length;
+        html += `<li class="lick-group">${esc(scaleName({ id: group, root: k.tonic }))}<span>${count}</span></li>`;
+      }
+      html += `<li><button type="button" class="lick-item${l && x.id === l.id ? ' on' : ''}" data-lick="${x.id}" aria-pressed="${!!(l && x.id === l.id)}">
         <span class="li-name">${learned.has(x.id) ? '<span class="li-check" aria-label="' + esc(tr('learned')) + '">✓</span>' : ''}${esc(x.n[state.lang] || x.n.en)}</span>
         <span class="li-meta">${esc(tr('over.' + x.over))} · ${esc(tr('lvl.' + x.lvl))}</span>
-      </button></li>`).join('')
-      : `<li class="empty">${esc(tr('noLicks'))}</li>`;
+      </button></li>`;
+    }
+    $('#lick-list').innerHTML = html || `<li class="empty">${esc(tr('noLicks'))}</li>`;
+
     const det = $('#lick-detail');
     if (!l) {
       det.innerHTML = `<div class="lick-empty"><p>${esc(tr('noFit'))}</p>${state.lickFitOnly ? `<button type="button" class="btn-ghost" data-lact="showAll">${esc(tr('showAll'))}</button>` : ''}</div>`;
@@ -606,33 +646,43 @@
       det.innerHTML = `<div class="lick-empty"><p>${esc(tr('ukeNotice'))}</p><button type="button" class="btn-ghost" data-lact="toGuitar">${esc(tr('toGuitar'))}</button></div>`;
       return;
     }
-    const k = derived.key;
-    const tun = lickTuning();
-    const r = LK.realize(l, k, tun.midi);
+    const { r, base, tun } = lickRealized(l);
     const pl = LK.place(l, prog.chords);
     const isLearned = learned.has(l.id);
+    const sc = r.scale;
+    const pos = r.position;
+
     // where it lands in this progression
-    const firstChord = chordAtBeat(pl.startBeat);
     const barTxt = l.bars > 1 ? tr('barsRange', { a: pl.bar + 1, b: pl.bar + l.bars }) : tr('barOne', { a: pl.bar + 1 });
     let where;
-    if (!pl.found) where = tr('where.missing', { chord: l.over });
+    if (!pl.found) where = tr(l.over === 'iiVI' ? 'where.missingIIVI' : 'where.missing', { chord: l.over });
     else if (l.over === 'turn') where = tr('where.turn', { bars: barTxt });
     else if (l.over === 'end') where = tr(state.ending === 'resolve' ? 'where.end' : 'where.endLoop', { bars: barTxt });
     else if (l.over === 'any') where = tr('where.any', { bars: barTxt });
-    else where = tr('where.over', { bars: barTxt, chord: symbolText(firstChord) });
+    else if (l.over === 'iiVI') where = tr('where.iiVI', { bars: barTxt });
+    else where = tr('where.over', { bars: barTxt, chord: symbolText(chordAtBeat(pl.startBeat)) });
     const chords = Array.from({ length: l.bars }, (_, b) => symbolText(chordAtBeat(pl.startBeat + b * 4)));
-    const tags = [tr('over.' + l.over), tr('lvl.' + l.lvl), l.box === 'M' ? tr('boxM') : l.box === '1→2' ? tr('boxSlide') : tr('box', { b: l.box }), tr('scaleNames.' + l.scale)]
-      .concat(l.techs.map((t) => tr('techs.' + t)));
-    // neck: the lick's notes over a faint view of its scale around that spot
-    const fr = r.notes.map((n) => n.f);
-    const lo = Math.min(...fr), hi = Math.max(...fr);
-    const sc = SC.build(l.scale, k.tonic);
-    const maxF = Math.max(12, hi + 2);
+
+    // degrees under the tab; green when the note belongs to the chord sounding at that moment
+    const label = (n) => (state.scaleLabels === 'names' ? pitchName(n.m % 12, sc) : n.label);
+    const degrees = r.notes.map((n) => ({ label: label(n), ct: derived.realized[chordAtBeat(pl.startBeat + n.t)].pcs.includes(n.m % 12) }));
+
+    // the neck: the whole scale, the chosen position outlined, the lick as the highlighted path
+    const inPos = new Set(pos.notes.map((x) => x.s + ':' + x.f));
+    const lickKeys = new Set(r.notes.map((n) => n.s + ':' + n.f));
+    const maxF = Math.min(20, Math.max(12, pos.maxF + 2, ...r.notes.map((n) => n.f + 1)));
+    const scaleNotes = SC.wholeNeck(sc, tun.midi, maxF).filter((x) => !lickKeys.has(x.s + ':' + x.f))
+      .map((x) => Object.assign(x, { label: state.scaleLabels === 'names' ? pitchName(x.m % 12, sc) : (sc.notes.find((n) => n.pc === x.m % 12) || {}).label || '', cls: 'scale' + (x.m % 12 === sc.root.pc ? ' sroot' : ''), out: !inPos.has(x.s + ':' + x.f) }));
     const seen = new Set();
     const lickNotes = r.notes.filter((n) => { const key = n.s + ':' + n.f; if (seen.has(key)) return false; seen.add(key); return true; })
-      .map((n) => ({ s: n.s, f: n.f, m: n.m, label: state.scaleLabels === 'names' ? nn(T.spell(k.tonic.letter + [0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6][(n.m - k.tonic.pc + 120) % 12], n.m)) : n.label, cls: n.label === 'R' ? 'croot lick' : 'ctone lick' }));
-    const around = SC.wholeNeck(sc, tun.midi, maxF).filter((x) => x.f >= lo - 1 && x.f <= hi + 1 && !seen.has(x.s + ':' + x.f))
-      .map((x) => Object.assign(x, { label: '', cls: 'scale', out: true }));
+      .map((n) => ({ s: n.s, f: n.f, m: n.m, label: label(n), cls: (n.label === 'R' ? 'croot' : 'ctone') + ' lick' + (n.inBox ? '' : ' passing') }));
+
+    const tags = [tr('over.' + l.over), tr('lvl.' + l.lvl)].concat(l.techs.map((t) => tr('techs.' + t)));
+    const posChips = base.positions.map((p, i) => {
+      const on = i === r.posIndex;
+      const full = base.fullFit[i];
+      return `<button type="button" class="chip num${on ? ' on' : ''}${full ? '' : ' partial'}" data-lpos="${i}" aria-pressed="${on}" title="${esc(tr('frets', { a: p.minF, b: p.maxF }) + ' · ' + tr(full ? 'posFits' : 'posPartly'))}">${i + 1}</button>`;
+    }).join('');
     const playingCtx = !!(lickCtx && A.playing);
     det.innerHTML = `
       <div class="lick-top">
@@ -641,6 +691,12 @@
           <p class="lick-tags">${tags.map((t) => `<span>${esc(t)}</span>`).join('')}</p>
         </div>
         <button type="button" class="btn-learned" data-lact="learned" aria-pressed="${isLearned}">${isLearned ? '✓ ' + esc(tr('learned')) : esc(tr('markLearned'))}</button>
+      </div>
+      <div class="lick-from">
+        <span class="mini-label">${esc(tr('fromScale'))}</span>
+        <b>${esc(scaleName(sc))}</b>
+        <span class="lick-from-notes">${sc.notes.map((n) => `<i>${esc(state.scaleLabels === 'names' ? nn(n) : n.label)}</i>`).join('')}</span>
+        <button type="button" class="link-btn" data-lact="toScales">${esc(tr('seeInScales'))} →</button>
       </div>
       <p class="lick-tip">${esc(l.tip[state.lang] || l.tip.en)}</p>
       <div class="lick-controls">
@@ -653,9 +709,15 @@
         <span class="lick-status" id="lick-status" hidden></span>
       </div>
       <p class="lick-where">${esc(where)}</p>
-      <div class="tab-wrap">${D.tab(r.notes, { strings: tun.midi.length, names: tun.names, bars: l.bars, chords, aria: l.n.en })}</div>
-      <div class="neck-wrap lick-neck" id="lick-neck">${D.neck(tun.midi, tun.names, around.concat(lickNotes), { maxF, aria: l.n.en })}</div>
-      <p class="hint">${esc(tr('lickHint'))}${r.refingered ? ' ' + esc(tr('refingered', { tuning: tr('tunings.' + state.tuning) })) : ''}${!isFretted() ? ' ' + esc(tr('pianoNote')) : ''}</p>`;
+      <div class="tab-wrap">${D.tab(r.notes, { strings: tun.midi.length, names: tun.names, bars: l.bars, chords, degrees, aria: l.n.en })}</div>
+      <p class="tab-legend">${esc(tr('tabLegendDeg'))} <span class="tl-deg ct">${esc(tr('tabLegendGreen'))}</span> ${esc(tr('tabLegendCt'))}</p>
+      <div class="pos-row lick-pos">
+        <span class="mini-label">${esc(tr('position'))}</span>
+        <div class="chips">${posChips}</div>
+        <span class="pos-note">${esc(tr('frets', { a: pos.minF, b: pos.maxF }))} · ${esc(tr(base.fullFit[r.posIndex] ? 'posFits' : 'posPartly'))}</span>
+      </div>
+      <div class="neck-wrap lick-neck" id="lick-neck">${D.neck(tun.midi, tun.names, scaleNotes.concat(lickNotes), { maxF, window: [pos.minF, pos.maxF], aria: l.n.en })}</div>
+      <p class="hint">${esc(tr('lickPosHint'))} ${esc(tr('lickHint'))}${r.refingered ? ' ' + esc(tr('refingered', { tuning: tr('tunings.' + state.tuning) })) : ''}${!isFretted() ? ' ' + esc(tr('pianoNote')) : ''}</p>`;
     syncRunButtons();
   }
 
@@ -666,7 +728,7 @@
     if (k < 0 || !notes || !notes[k]) return;
     const n = notes[k];
     $$(`#lick-detail .tb-note[data-k="${k}"]`).forEach((el) => el.classList.add('is-sounding'));
-    $$(`#lick-neck .n-note[data-m="${n.m}"]`).forEach((el) => el.classList.add('is-sounding'));
+    $$(`#lick-neck .n-note.lick[data-m="${n.m}"]`).forEach((el) => el.classList.add('is-sounding'));
   }
   function lickStatus(text) {
     const el = $('#lick-status');
@@ -684,11 +746,11 @@
   function lickData() {
     const l = currentLick();
     if (!l) return null;
-    return { l, r: LK.realize(l, derived.key, lickTuning().midi), pl: LK.place(l, prog.chords) };
+    return { l, r: lickRealized(l).r, pl: LK.place(l, prog.chords) };
   }
   function playLickAlone() {
     if (scaleRunning()) { stopScale(); return; }
-    const d = lickData(); if (!d) return;
+    const d = lickData(); if (!d || !d.r.notes.length) return;
     if (A.playing) A.stop();
     const res = A.lick(d.r.notes, state.tempo * state.lickSpeed);
     if (!res) return;
@@ -699,7 +761,7 @@
   }
   function playLickInContext() {
     if (lickCtx && A.playing) { A.stop(); return; }
-    const d = lickData(); if (!d) return;
+    const d = lickData(); if (!d || !d.r.notes.length) return;
     stopScale();
     lickCtx = { start: d.pl.startBeat, notes: d.r.notes };
     const melody = d.r.notes.map((n) => Object.assign({}, n, { t: n.t + d.pl.startBeat }));
@@ -718,6 +780,28 @@
     });
     syncPlay();
     syncRunButtons();
+  }
+  // Jump between the two tabs, keeping the same scale and the same area of the neck.
+  function lickToScales() {
+    const l = currentLick(); if (!l) return;
+    const { r, base } = lickRealized(l);
+    stopScale(); if (lickCtx && A.playing) A.stop();
+    state.panelTab = 'scales';
+    state.scaleScope = 'key';
+    state.extraKeyScale = l.scale;
+    state.keyScaleIdx = scaleFor(0).options.findIndex((o) => o.id === l.scale);
+    state.posSystem = 'auto';
+    state.scaleAnchor = base.positions[r.posIndex] ? base.positions[r.posIndex].center : null;
+    persist(); renderScales();
+  }
+  function scalesToLicks(id) {
+    stopScale(); if (A.playing) A.stop();
+    state.panelTab = 'licks';
+    state.lickScale = id;
+    state.lickFilter = 'all';
+    state.lickId = null;
+    state.lickAnchor = state.scaleAnchor;
+    persist(); renderScales();
   }
 
   function chordRef(i) { return `<b class="cref">${esc(symbolText(i))}</b>`; }
@@ -861,14 +945,26 @@
       state.panelTab = state.panelTab === 'scales' ? 'licks' : 'scales'; persist(); renderScales();
       $(`.panel-tabs [data-tab="${state.panelTab}"]`).focus();
     });
-    $('#lick-filters').addEventListener('click', (e) => { const b = e.target.closest('[data-lfilter]'); if (!b) return; state.lickFilter = b.dataset.lfilter; persist(); renderLicks(); });
+    $('#lick-filters').addEventListener('click', (e) => {
+      if (e.target.closest('[data-lact="clearScale"]')) { state.lickScale = null; persist(); renderLicks(); return; }
+      const b = e.target.closest('[data-lfilter]'); if (!b) return; state.lickFilter = b.dataset.lfilter; persist(); renderLicks();
+    });
     $('#lick-fit').addEventListener('change', (e) => { state.lickFitOnly = e.target.checked; persist(); renderLicks(); });
     $('#lick-list').addEventListener('click', (e) => {
       const b = e.target.closest('[data-lick]'); if (!b) return;
       stopScale(); if (lickCtx && A.playing) A.stop();
       state.lickId = b.dataset.lick; persist(); renderLicks();
     });
+    $('#scale-why').addEventListener('click', (e) => { const b = e.target.closest('[data-to-licks]'); if (b) scalesToLicks(b.dataset.toLicks); });
     $('#lick-detail').addEventListener('click', (e) => {
+      const lp = e.target.closest('[data-lpos]');
+      if (lp) {
+        const l = currentLick(); if (!l) return;
+        const wasCtx = lickCtx && A.playing; stopScale(); if (wasCtx) A.stop();
+        state.lickAnchor = lickRealized(l).base.positions[+lp.dataset.lpos].center;
+        persist(); renderLicks(); if (wasCtx) playLickInContext();
+        return;
+      }
       const sp = e.target.closest('[data-speed]');
       if (sp) { state.lickSpeed = +sp.dataset.speed; persist(); const wasCtx = lickCtx && A.playing; stopScale(); if (wasCtx) A.stop(); renderLicks(); if (wasCtx) playLickInContext(); return; }
       const b = e.target.closest('[data-lact]'); if (!b) return;
@@ -876,6 +972,7 @@
       if (act === 'play') playLickAlone();
       else if (act === 'context') playLickInContext();
       else if (act === 'showAll') { state.lickFitOnly = false; state.lickFilter = 'all'; persist(); renderLicks(); }
+      else if (act === 'toScales') lickToScales();
       else if (act === 'toGuitar') { state.instrument = 'guitar'; shapePick = {}; refresh(true); }
       else if (act === 'learned') {
         const l = currentLick(); if (!l) return;

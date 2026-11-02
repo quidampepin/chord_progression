@@ -114,24 +114,48 @@ console.log('• Licks');
 {
   require(path.join(__dirname, '..', 'js', 'licks.js'));
   const LK = globalThis.Cadence.licks;
-  const kA = keyOf('A', 'minor'), kAM = keyOf('A', 'major');
-  // Every note is in the lick's scale, except the deliberate chromatic passing notes.
-  const CHROMATIC_OK = { turnaround: ['6', '♭6'], 'iv-third': [], 'v-leading': ['7'] };
+  const MODE_OF = { minorPent: 'minor', blues: 'minor', majorPent: 'major', majorBlues: 'major', mixolydian: 'mixolydian', dorian: 'dorian', aeolian: 'minor', harmonicMinor: 'minor', phrygianDom: 'phrygianDom', phrygian: 'phrygian', ionian: 'major' };
+  const DEGS = { R: 0, '♭2': 1, '2': 2, '♭3': 3, '3': 4, '4': 5, '♭5': 6, '♯4': 6, '5': 7, '♯5': 8, '♭6': 8, '6': 9, '♭7': 10, '7': 11 };
+  check('At least 70 licks', LK.LICKS.length >= 70, true);
+  check('Lick ids are unique', new Set(LK.LICKS.map((l) => l.id)).size, LK.LICKS.length);
   for (const l of LK.LICKS) {
-    const k = l.fam === 'major' ? kAM : kA;
-    const sc = S.build(l.scale === 'blues' || l.id === 'ending' ? 'blues' : l.scale, k.tonic);
-    const outside = LK.realize(l, k).notes.filter((n) => !sc.pcs.has(n.m % 12)).map((n) => n.label);
-    check(`${l.id}: notes stay in its scale`, outside.filter((x) => !(CHROMATIC_OK[l.id] || []).includes(x)), []);
+    const k = keyOf('A', MODE_OF[l.scale]);
+    const sc = S.build(l.scale, k.tonic);
+    const ok = new Set(l.chrom.map((c) => DEGS[c]));
+    // every note belongs to the lick's scale, apart from its declared passing notes
+    const outside = l.notes.filter((n) => !sc.pcs.has((9 + n.semi + 120) % 12) && !ok.has((n.semi + 120) % 12)).map((n) => n.semi);
+    check(`${l.id}: notes stay in ${l.scale}`, outside, []);
+    // whole bars, so the lick lines up with the progression
+    const len = Math.max(...l.notes.map((n) => n.t + n.d));
+    check(`${l.id}: fills whole bars`, Math.abs(len - Math.round(len)) < 0.02 && Math.round(len) <= l.bars * 4, true);
+    // playable in its home position: frets in range, compact, bends not on open strings, double-stops on different strings
+    const r = LK.realize(l, k, V.TUNINGS.standard.midi);
+    const fr = r.notes.map((n) => n.f);
+    check(`${l.id}: fingered in standard tuning`, r.notes.length === l.notes.length && Math.min(...fr) >= 0 && Math.max(...fr) <= 20, true);
+    check(`${l.id}: fits a hand position (≤ 6 frets)`, Math.max(...fr) - Math.min(...fr) <= 6, true);
+    check(`${l.id}: no bends on open strings`, r.notes.some((n) => n.f === 0 && n.tech.some((t) => ['b', 'hb', 'qb', 'r', 'si'].includes(t))), false);
+    const clash = r.notes.some((n, i) => r.notes.some((o, j) => j !== i && o.t === n.t && o.s === n.s));
+    check(`${l.id}: double-stops on separate strings`, clash, false);
+    check(`${l.id}: home position holds every note`, r.fullFit[r.posIndex], true);
   }
-  check('Box 1 in A sits at frets 5–8', (() => { const f = LK.realize(LK.LICKS.find((l) => l.id === 'walk-down'), kA).notes.map((n) => n.f); return [Math.min(...f), Math.max(...f)]; })(), [5, 8]);
+  const kA = keyOf('A', 'minor'), kAM = keyOf('A', 'major');
+  const byId = (id) => LK.LICKS.find((l) => l.id === id);
+  check('Box 1 in A sits at frets 5–8', (() => { const f = LK.realize(byId('walk-down'), kA).notes.map((n) => n.f); return [Math.min(...f), Math.max(...f)]; })(), [5, 8]);
+  check('Same lick in position 3 moves up the neck', Math.min(...LK.realize(byId('walk-down'), kA, null, 2).notes.map((n) => n.f)) > 8, true);
+  check('Same lick in another position keeps the same pitches',
+    LK.realize(byId('bend-five'), kA, null, 1).notes.map((n) => n.m % 12).join(), LK.realize(byId('bend-five'), kA, null, 0).notes.map((n) => n.m % 12).join());
   const blues = ['I7', 'I7', 'I7', 'I7', 'IV7', 'IV7', 'I7', 'I7', 'V7', 'IV7', 'I7', 'V7'].map((t) => Object.assign(T.parseRoman(t), { beats: 4 }));
-  const at = (id) => LK.place(LK.LICKS.find((l) => l.id === id), blues).bar + 1;
+  const at = (id) => LK.place(byId(id), blues).bar + 1;
   check('12-bar: “over the IV” lands in bar 5', at('over-iv'), 5);
   check('12-bar: “over the V” lands in bar 9', at('over-v'), 9);
   check('12-bar: the turnaround takes bars 11–12', at('turnaround'), 11);
-  check('Minor licks fit a blues in a major key', LK.fits(LK.LICKS[0], kAM, 'blues'), true);
-  check('Minor licks don’t claim to fit a jazz tune in major', LK.fits(LK.LICKS[0], kAM, 'jazz'), false);
-  check('Drop D only moves notes on the low string', LK.realize(LK.LICKS.find((l) => l.id === 'walk-down'), kA, V.TUNINGS.dropD.midi).notes.map((n) => n.s + ':' + n.f).join(' '), '5:8 5:5 4:8 4:5 3:7 3:5 2:7');
+  const iiVI = ['ii7', 'V7', 'Imaj7', 'Imaj7'].map((t) => Object.assign(T.parseRoman(t), { beats: 4 }));
+  check('ii–V–I lick starts on the ii chord', LK.place(byId('jazz-guide'), iiVI).found && LK.place(byId('jazz-guide'), iiVI).bar, 0);
+  check('Minor-pentatonic licks fit a blues in a major key', LK.fits(byId('bend-five'), kAM, 'blues'), true);
+  check('Minor-pentatonic licks don’t claim to fit jazz in major', LK.fits(byId('bend-five'), kAM, 'jazz'), false);
+  check('Dorian licks only for Dorian progressions', LK.fits(byId('dorian-6'), kA, 'funk'), false);
+  check('Drop D only moves notes on the low string', LK.realize(byId('walk-down'), kA, V.TUNINGS.dropD.midi).notes.map((n) => n.s + ':' + n.f).join(' '), '5:8 5:5 4:8 4:5 3:7 3:5 2:7');
+  check('Bad notation is reported', (() => { try { LK.parseLine('9:1'); return false; } catch (e) { return true; } })(), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

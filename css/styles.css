@@ -468,6 +468,29 @@ kbd {
   .lick-list { max-height: 240px; }
 }
 
+
+/* licks v2: scale connection */
+.lick-group { list-style: none; display: flex; justify-content: space-between; align-items: baseline; margin: 8px 2px 0; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lick-group:first-child { margin-top: 0; }
+.lick-group span { font-family: var(--f-mono); font-weight: 500; letter-spacing: 0; }
+.chip-x { gap: 8px; }
+.lick-from { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); }
+.lick-from b { font-family: var(--f-display); }
+.lick-from-notes { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.lick-from-notes i { font: 600 0.6875rem/1 var(--f-mono); font-style: normal; padding: 4px 6px; border-radius: 6px; background: var(--raised); border: 1px solid var(--line); }
+.link-btn { border: 0; background: none; padding: 2px 0; color: var(--accent); font-weight: 600; font-size: var(--step--1); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lick-from .link-btn { margin-left: auto; }
+.chip.partial { border-style: dashed; }
+.chip.partial:not(.on) { color: var(--muted); }
+.pos-note { font-size: 0.75rem; color: var(--muted); }
+.tb-deg { fill: var(--muted); font: 600 9px var(--f-mono); }
+.tb-deg.ct { fill: var(--accent); }
+.tab-legend { margin: -4px 0 0; font-size: 0.75rem; color: var(--muted); }
+.tl-deg { font: 600 0.6875rem var(--f-mono); color: var(--muted); }
+.tl-deg.ct { color: var(--accent); }
+.n-note.lick circle { stroke-width: 2; }
+.n-note.lick.passing circle { stroke-dasharray: 3 2; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
   .lower { grid-template-columns: minmax(0, 1fr); }

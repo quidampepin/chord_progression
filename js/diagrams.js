@@ -115,7 +115,9 @@
   function tab(notes, opts) {
     const N = opts.strings || 6, bars = opts.bars || 1;
     const bw = 44, left = 30, top = 46, sp = 14;
-    const W = left + bars * 4 * bw + 10, staffH = (N - 1) * sp, H = top + staffH + 26;
+    const maxStack = opts.degrees ? Math.max(0, ...notes.map((n) => notes.filter((o) => o.t === n.t).length - 1)) : 0;
+    const degH = opts.degrees ? 18 + maxStack * 10 : 0;
+    const W = left + bars * 4 * bw + 10, staffH = (N - 1) * sp, H = top + staffH + 26 + degH;
     const Y = (s) => top + (N - 1 - s) * sp;
     const X = (t) => left + 16 + t * bw;
     let g = '';
@@ -159,6 +161,12 @@
         marks += `<path class="tb-vib" d="${d}"/>`;
       }
       body += `<g class="tb-note" data-k="${n.k}"><rect x="${x - w / 2}" y="${y - 7}" width="${w}" height="14" rx="3"/><text x="${x}" y="${y + 4}" text-anchor="middle">${esc(label)}</text></g>`;
+      // scale degree under the staff (double-stops stack their degrees)
+      if (opts.degrees && opts.degrees[n.k]) {
+        const dg = opts.degrees[n.k];
+        const stack = sorted.filter((o) => o.t === n.t && o.s < n.s).length;
+        body += `<text class="tb-deg${dg.ct ? ' ct' : ''}" data-k="${n.k}" x="${x}" y="${top + staffH + 15 + stack * 10}" text-anchor="middle">${esc(dg.label)}</text>`;
+      }
       prevOn[n.s] = { x, f: n.f };
     }
     return `<svg class="tab" viewBox="0 0 ${W} ${H}" style="min-width:${Math.min(W, 560)}px;max-width:${Math.round(W * 1.55)}px" role="img" aria-label="${esc(opts.aria || '')}">${g}${marks}${body}</svg>`;
