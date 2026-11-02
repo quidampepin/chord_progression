@@ -97,6 +97,49 @@
   }
 
   const ukulele = (m, t, dur, vel) => pluck(m, t, dur, vel * 0.9, true);
+
+  /* A lead-guitar note with its technique: bends and slides glide the pitch,
+   * hammer-ons and pull-offs are played softer (not re-picked), vibrato wobbles the pitch. */
+  const BEND = { b: 2, hb: 1, qb: 0.5 };
+  function leadNote(n, t, dur, prevM) {
+    const { buf, rate } = ksBuffer(n.m, false);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const pr = src.playbackRate;
+    const at = (semi) => rate * Math.pow(2, semi / 12);
+    const tech = n.tech || [];
+    const legato = tech.includes('h') || tech.includes('p') || tech.includes('/');
+    let start = 0;
+    if (tech.includes('r')) start = 2;
+    else if (tech.includes('si')) start = -2;
+    else if (tech.includes('/') && prevM != null) start = prevM - n.m;
+    pr.setValueAtTime(at(start), t);
+    if (start && !tech.includes('r')) pr.linearRampToValueAtTime(at(0), t + Math.min(0.09, dur * 0.4));
+    if (tech.includes('r')) { pr.setValueAtTime(at(2), t + dur * 0.35); pr.linearRampToValueAtTime(at(0), t + dur * 0.35 + 0.14); }
+    for (const k in BEND) if (tech.includes(k)) { pr.setValueAtTime(at(0), t + 0.03); pr.linearRampToValueAtTime(at(BEND[k]), t + 0.03 + Math.min(0.16, dur * 0.5)); }
+    if (tech.includes('~') && dur > 0.25) {
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 5.6;
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(0, t);
+      depth.gain.linearRampToValueAtTime(rate * 0.012, t + Math.min(0.35, dur * 0.5));
+      lfo.connect(depth); depth.connect(pr);
+      lfo.start(t); lfo.stop(t + dur + 0.3);
+    }
+    const g = ctx.createGain();
+    g.gain.setValueAtTime((legato ? 0.2 : 0.34) * (n.vel || 1), t);
+    g.gain.setTargetAtTime(0.0001, t + dur, 0.07);
+    const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 180; body.gain.value = 4;
+    const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 3800;
+    src.connect(body); body.connect(tone); tone.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur + 0.5);
+  }
+  // Schedule a lick (notes with start/length in beats) from time t0.
+  function scheduleLick(notes, t0, spb) {
+    const lastOn = {};
+    notes.slice().sort((a, b) => a.t - b.t).forEach((n) => {
+      leadNote(n, t0 + n.t * spb, Math.max(0.08, n.d * spb), lastOn[n.s]);
+      lastOn[n.s] = n.m;
+    });
+  }
   const VOICES = { piano, pad, guitar: pluck, ukulele };
   const FRETTED = new Set(['guitar', 'ukulele']);
 
@@ -148,6 +191,7 @@
         const t = t0 + (pass * total + starts[idx]) * spb;
         if (t > horizon) break;
         const e = events[idx];
+        if (idx === 0 && opts.melody && pass % (opts.melodyEvery || 1) === 0) scheduleLick(opts.melody, t, spb);
         hit(e.notes, t, e.beats * spb, opts.instrument, opts.pattern, spb);
         idx++;
         if (idx >= events.length) {
@@ -169,7 +213,7 @@
       const beat = ((now / spb) % total + total) % total;
       let cur = 0;
       for (let i = 0; i < starts.length; i++) if (beat >= starts[i]) cur = i;
-      if (now >= 0 && player.onStep) player.onStep(cur, beat);
+      if (now >= 0 && player.onStep) player.onStep(cur, beat, Math.floor(now / spb / total));
       player.raf = requestAnimationFrame(tick);
     };
     player.raf = requestAnimationFrame(tick);
@@ -241,5 +285,15 @@
     return notes.map((_, i) => 50 + i * step * 1000);
   }
 
-  C.audio = { play, stop, audition, run, stopRun: silence, midiFile, get playing() { return player.playing; } };
+  // A lick on its own. Returns the start time of each note in ms (sorted by start).
+  function lick(notes, tempo) {
+    if (player.playing) return null;
+    ensure();
+    const spb = 60 / tempo;
+    const t0 = ctx.currentTime + 0.05;
+    scheduleLick(notes, t0, spb);
+    return { spb, ms: notes.map((n) => 50 + n.t * spb * 1000), endMs: 50 + Math.max(...notes.map((n) => n.t + n.d)) * spb * 1000 };
+  }
+
+  C.audio = { play, stop, audition, run, lick, stopRun: silence, midiFile, get playing() { return player.playing; } };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

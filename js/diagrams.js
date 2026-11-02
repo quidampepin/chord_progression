@@ -109,5 +109,60 @@
     return `<svg class="neck" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || '')}">${g}</svg>`;
   }
 
-  C.draw = { guitar, keyboard, neck, esc };
+  /* Guitar tab: highest string on top, beats on a grid, techniques drawn the usual way.
+   * notes: [{s, f, t, d, tech:[]}] · opts: { strings, names, bars, chords: [name per bar] }
+   */
+  function tab(notes, opts) {
+    const N = opts.strings || 6, bars = opts.bars || 1;
+    const bw = 44, left = 30, top = 46, sp = 14;
+    const W = left + bars * 4 * bw + 10, staffH = (N - 1) * sp, H = top + staffH + 26;
+    const Y = (s) => top + (N - 1 - s) * sp;
+    const X = (t) => left + 16 + t * bw;
+    let g = '';
+    for (let s = 0; s < N; s++) {
+      g += `<line class="tb-line" x1="${left}" x2="${W - 10}" y1="${Y(s)}" y2="${Y(s)}"/>`;
+      if (opts.names) g += `<text class="tb-name" x="${left - 8}" y="${Y(s) + 3.5}" text-anchor="end">${esc(opts.names[s])}</text>`;
+    }
+    for (let b = 0; b <= bars; b++) {
+      const x = left + b * 4 * bw;
+      g += `<line class="tb-bar${b === bars ? ' end' : ''}" x1="${Math.min(x, W - 10)}" x2="${Math.min(x, W - 10)}" y1="${top}" y2="${top + staffH}"/>`;
+      if (b < bars) {
+        if (opts.chords && opts.chords[b]) g += `<text class="tb-chord" x="${x + 6}" y="14">${esc(opts.chords[b])}</text>`;
+        for (let k = 0; k < 8; k++) g += `<text class="tb-count${k % 2 ? ' and' : ''}" x="${X(b * 4 + k / 2)}" y="${H - 6}" text-anchor="middle">${k % 2 ? '&' : k / 2 + 1}</text>`;
+      }
+    }
+    const sorted = notes.map((n, k) => Object.assign({ k }, n)).sort((a, b) => a.t - b.t || a.s - b.s);
+    const prevOn = {};
+    let marks = '', body = '';
+    for (const n of sorted) {
+      const x = X(n.t), y = Y(n.s);
+      const tech = n.tech || [];
+      const label = String(n.f);
+      const w = label.length > 1 ? 15 : 10;
+      const p = prevOn[n.s];
+      if (p && (tech.includes('h') || tech.includes('p'))) {
+        const mx = (p.x + x) / 2;
+        marks += `<path class="tb-arc" d="M${p.x + 3} ${y - 7} Q${mx} ${y - 17} ${x - 3} ${y - 7}"/><text class="tb-tech" x="${mx}" y="${y - 16}" text-anchor="middle">${tech.includes('h') ? 'h' : 'p'}</text>`;
+      }
+      if (p && tech.includes('/')) marks += `<line class="tb-slide" x1="${p.x + 6}" y1="${y + (n.f > p.f ? 4 : -4)}" x2="${x - 6}" y2="${y + (n.f > p.f ? -4 : 4)}"/>`;
+      if (tech.includes('si')) marks += `<line class="tb-slide" x1="${x - 16}" y1="${y + 4}" x2="${x - 7}" y2="${y - 3}"/>`;
+      const bend = tech.find((t) => t === 'b' || t === 'hb' || t === 'qb');
+      if (bend) {
+        const txt = bend === 'b' ? 'full' : bend === 'hb' ? '½' : '¼';
+        marks += `<path class="tb-bend" d="M${x + 6} ${y - 2} Q${x + 14} ${y - 4} ${x + 14} ${top - 14}"/><path class="tb-head" d="M${x + 10.5} ${top - 10} L${x + 14} ${top - 17} L${x + 17.5} ${top - 10} Z"/><text class="tb-tech" x="${x + 14}" y="${top - 20}" text-anchor="middle">${txt}</text>`;
+      }
+      if (tech.includes('r')) marks += `<text class="tb-tech" x="${x}" y="${top - 20}" text-anchor="middle">PB↓</text>`;
+      if (tech.includes('~')) {
+        const x2 = Math.min(X(n.t + n.d) - 6, x + 60, W - 18);
+        let d = `M${x + 6} ${top - 5}`;
+        for (let xx = x + 6; xx < x2; xx += 6) d += ` q1.5 -3 3 0 q1.5 3 3 0`;
+        marks += `<path class="tb-vib" d="${d}"/>`;
+      }
+      body += `<g class="tb-note" data-k="${n.k}"><rect x="${x - w / 2}" y="${y - 7}" width="${w}" height="14" rx="3"/><text x="${x}" y="${y + 4}" text-anchor="middle">${esc(label)}</text></g>`;
+      prevOn[n.s] = { x, f: n.f };
+    }
+    return `<svg class="tab" viewBox="0 0 ${W} ${H}" style="min-width:${Math.min(W, 560)}px;max-width:${Math.round(W * 1.55)}px" role="img" aria-label="${esc(opts.aria || '')}">${g}${marks}${body}</svg>`;
+  }
+
+  C.draw = { guitar, keyboard, neck, tab, esc };
 })(window.Cadence = window.Cadence || {});

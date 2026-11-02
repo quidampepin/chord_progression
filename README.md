@@ -9,6 +9,7 @@ Open `index.html` in a browser (double-click works, no server needed).
 | `js/theory.js` | Note spelling (B♭, not A♯, in F major), modes, 24 chord qualities, Roman-numeral parser (`V7/ii`, `♭VII`, `iiø7`) |
 | `js/generator.js` | Templates per style + functional-harmony walk, re-harmonisation passes, colour pass, analysis |
 | `js/scales.js` | Scales to play over the progression: per-key and per-chord choices, positions on the neck |
+| `js/licks.js` | The licks library: shapes relative to the key root, fit rules, placement in the progression |
 | `js/voicing.js` | Piano voice leading (shortest-path search) and guitar shape finder (standard tuning) |
 | `js/audio.js` | Web Audio synths (piano, pad, Karplus–Strong guitar), scheduler, MIDI export |
 | `js/diagrams.js` | SVG chord boxes and keyboards |
@@ -51,5 +52,16 @@ One switch (Guitar, Ukulele, Piano, Synth pad) drives the chart, the selected-ch
 - Chords outside the nearby keys use **least alteration**: keep the key's notes and change only what the chord needs. For example, E major in C changes G to G♯ and gives E Phrygian dominant.
 - The jazz minor tonic (i6) gets **melodic minor**. Half-diminished chords offer **Locrian ♮2** as the alternative, because Locrian's ♭2 is an avoid note.
 - **Avoid notes** (a scale note a half step above a chord tone, or only the 4th on dominant 7ths) are drawn with a dashed red ring. Pentatonics have none, which is why they feel safe.
+
+## Licks
+
+The Scales panel has a **Licks** tab with 29 short phrases: minor pentatonic and blues licks in boxes 1 and 2, plus major pentatonic licks for country and major-key sounds. Each one is written as a shape relative to the key's root, so it works in any key. Each is tagged by where it fits (over the I, IV or V chord, turnaround, ending, anywhere), level, and technique.
+
+- **Tab and neck**: the lick is shown as tab, with bends, slides, hammer-ons, pull-offs and vibrato marked, and with your progression's chords above each bar. It also appears on the neck over its scale box. Other tunings are re-fingered string by string.
+- **Play the lick** on its own, at 50%, 75% or 100% speed. Notes light up in the tab and on the neck as they sound.
+- **Play it over the progression**: the lick lands in the right bar ("over the IV" waits for the IV chord, turnarounds take the last bars). It plays once ("Listen…"), then the next time through is yours ("Your turn!"), and the loop continues.
+- **Mark as learned** to track progress. "Only licks that fit this progression" hides licks that don't suit the current key and style.
+
+The licks are generic idiomatic phrases, not transcriptions of specific recordings.
 
 Settings, the current progression and recent history are saved in the browser (localStorage).

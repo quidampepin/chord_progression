@@ -104,7 +104,12 @@
     <p class="hint" data-i18n="shortcuts"></p>
   </section>
 
-  <section class="scales" aria-labelledby="scales-title">
+  <section class="scales" aria-label="Scales and licks">
+    <div class="panel-tabs" role="tablist">
+      <button type="button" role="tab" id="tab-scales" data-tab="scales" aria-controls="scales-body" data-i18n="tabScales"></button>
+      <button type="button" role="tab" id="tab-licks" data-tab="licks" aria-controls="licks-body" data-i18n="tabLicks"></button>
+    </div>
+    <div id="scales-body" class="panel-body" role="tabpanel" aria-labelledby="tab-scales">
     <div class="scales-head">
       <div class="scales-title-wrap">
         <h2 class="h2" id="scales-title" data-i18n="scalesTitle"></h2>
@@ -128,6 +133,23 @@
     <div class="pos-row" id="pos-row"></div>
     <div class="neck-wrap" id="neck"></div>
     <p class="scale-legend"><span class="sl croot"><i></i><span data-i18n="lgChordRoot"></span></span><span class="sl ctone"><i></i><span data-i18n="lgChordTone"></span></span><span class="sl scale"><i></i><span data-i18n="lgScale"></span></span><span class="sl sroot"><i></i><span data-i18n="lgScaleRoot"></span></span><span class="sl avoid"><i></i><span data-i18n="lgAvoid"></span></span></p>
+    </div>
+    <div id="licks-body" class="panel-body" role="tabpanel" aria-labelledby="tab-licks" hidden>
+      <div class="scales-head">
+        <div class="scales-title-wrap">
+          <h2 class="h2" data-i18n="licksTitle"></h2>
+          <p class="scale-for" id="licks-sub"></p>
+        </div>
+      </div>
+      <div class="licks-grid">
+        <div class="lick-list-wrap">
+          <div class="chips" id="lick-filters"></div>
+          <label class="check"><input type="checkbox" id="lick-fit"><span data-i18n="lickFitOnly"></span></label>
+          <ul class="lick-list" id="lick-list"></ul>
+        </div>
+        <div class="lick-detail" id="lick-detail" aria-live="polite"></div>
+      </div>
+    </div>
   </section>
 
   <div class="lower">
@@ -156,6 +178,7 @@
 <script src="js/generator.js"></script>
 <script src="js/voicing.js"></script>
 <script src="js/scales.js"></script>
+<script src="js/licks.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/diagrams.js"></script>

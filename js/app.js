@@ -1,7 +1,7 @@
 /* Cadence — app controller: state, rendering, events. */
 (function (C) {
   'use strict';
-  const { theory: T, gen: G, voicing: V, audio: A, i18n: I, draw: D, scales: SC } = C;
+  const { theory: T, gen: G, voicing: V, audio: A, i18n: I, draw: D, scales: SC, licks: LK } = C;
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
   const esc = D.esc;
@@ -13,6 +13,7 @@
     notation: 'letters', tonic: 0, mode: 'major', style: 'pop', length: 4, color: 0, adventure: 0.35,
     ending: 'loop', rhythm: 'varied', smoothBass: true, pianoStyle: 'close', tuning: 'standard', ukeTuning: 'ukeStd', instrument: 'guitar', pattern: 'pulse', tempo: 100, repeat: true,
     scaleScope: 'key', keyScaleIdx: 0, scaleAnchor: null, posSystem: 'auto', scaleLabels: 'degrees',
+    panelTab: 'scales', lickId: null, lickFilter: 'all', lickFitOnly: true, lickSpeed: 0.75, learned: [],
   };
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { saved = null; }
@@ -281,6 +282,9 @@
     swap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5"/></svg>',
     prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
     next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+    play: '<svg viewBox="0 0 24 24" aria-hidden="true" class="fill"><path d="M7 4.5v15l13-7.5z"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" aria-hidden="true" class="fill"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>',
+    loop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>',
   };
 
   function miniKeyboard(i) {
@@ -442,8 +446,15 @@
     return esc(raw).replace(/\u0002(\d+)\u0002/g, (_, j) => chordRef(+j));
   }
 
+  function renderPanelTabs() {
+    $$('.panel-tabs [data-tab]').forEach((b) => { const on = b.dataset.tab === state.panelTab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    $('#scales-body').hidden = state.panelTab !== 'scales';
+    $('#licks-body').hidden = state.panelTab !== 'licks';
+  }
   function renderScales() {
     if (!derived) return;
+    renderPanelTabs();
+    if (state.panelTab === 'licks') { if (!lickCtx) renderLicks(); return; }
     const i = Math.min(selected, prog.chords.length - 1);
     const info = scaleFor(i);
     const sc = info.sc;
@@ -515,19 +526,22 @@
 
   // The scale button toggles: play the run, or stop it part-way.
   let runTimers = [];
+  let runKind = 'scale';
   const scaleRunning = () => runTimers.length > 0;
   function syncScaleButton() {
     const b = $('#play-scale');
-    b.textContent = tr(scaleRunning() ? 'stopScale' : 'playScale');
-    b.setAttribute('aria-pressed', String(scaleRunning()));
+    const on = scaleRunning() && runKind === 'scale';
+    b.textContent = tr(on ? 'stopScale' : 'playScale');
+    b.setAttribute('aria-pressed', String(on));
   }
   function stopScale() {
     if (!scaleRunning()) return;
     runTimers.forEach(clearTimeout);
     runTimers = [];
     A.stopRun();
-    $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding'));
-    syncScaleButton();
+    $$('.is-sounding').forEach((el) => el.classList.remove('is-sounding'));
+    lickHi = -1;
+    syncRunButtons();
   }
   function playScale() {
     if (scaleRunning()) { stopScale(); return; }
@@ -535,13 +549,175 @@
     const notes = scaleRun.slice();
     const times = A.run(notes, state.instrument, Math.max(80, state.tempo));
     if (!times) return;
+    runKind = 'scale';
     runTimers = times.map((ms, k) => setTimeout(() => {
       $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding'));
       $$(`.n-note[data-m="${notes[k]}"]`).forEach((el) => el.classList.add('is-sounding'));
     }, ms));
     // Finished on its own: clear the highlight and reset the button.
-    runTimers.push(setTimeout(() => { runTimers = []; $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding')); syncScaleButton(); }, times[times.length - 1] + 450));
+    runTimers.push(setTimeout(() => { runTimers = []; $$('.n-note.is-sounding').forEach((el) => el.classList.remove('is-sounding')); syncRunButtons(); }, times[times.length - 1] + 450));
+    syncRunButtons();
+  }
+
+
+  /* ---------- licks ---------- */
+  let lickCtx = null;      // set while a lick plays over the progression
+  let lickHi = -1;
+  function currentLickList() {
+    const all = LK.LICKS;
+    const k = derived.key;
+    let list = state.lickFitOnly ? all.filter((l) => LK.fits(l, k, state.style)) : all.slice();
+    const f = state.lickFilter;
+    if (f === 'turn') list = list.filter((l) => l.over === 'turn' || l.over === 'end');
+    else if (f !== 'all') list = list.filter((l) => l.over === f);
+    return list;
+  }
+  function currentLick() {
+    const list = currentLickList();
+    return list.find((l) => l.id === state.lickId) || list[0] || null;
+  }
+  function lickTuning() { return state.instrument === 'guitar' ? currentTuning() : V.TUNINGS.standard; }
+  function chordAtBeat(beat) {
+    let start = 0, idx = 0;
+    prog.chords.forEach((c, i) => { if (start <= beat) idx = i; start += c.beats; });
+    return idx;
+  }
+
+  function renderLicks() {
+    if (!derived || state.panelTab !== 'licks') return;
+    const learned = new Set(state.learned);
+    const list = currentLickList();
+    const l = currentLick();
+    $('#licks-sub').textContent = tr('licksSub', { n: LK.LICKS.length, m: LK.LICKS.filter((x) => learned.has(x.id)).length });
+    $('#lick-fit').checked = state.lickFitOnly;
+    $('#lick-filters').innerHTML = ['all', 'I', 'IV', 'V', 'turn', 'any'].map((f) => `<button type="button" class="chip${state.lickFilter === f ? ' on' : ''}" data-lfilter="${f}" aria-pressed="${state.lickFilter === f}">${esc(tr('lickFilters.' + f))}</button>`).join('');
+    $('#lick-list').innerHTML = list.length ? list.map((x) => `
+      <li><button type="button" class="lick-item${l && x.id === l.id ? ' on' : ''}" data-lick="${x.id}" aria-pressed="${!!(l && x.id === l.id)}">
+        <span class="li-name">${learned.has(x.id) ? '<span class="li-check" aria-label="' + esc(tr('learned')) + '">✓</span>' : ''}${esc(x.n[state.lang] || x.n.en)}</span>
+        <span class="li-meta">${esc(tr('over.' + x.over))} · ${esc(tr('lvl.' + x.lvl))}</span>
+      </button></li>`).join('')
+      : `<li class="empty">${esc(tr('noLicks'))}</li>`;
+    const det = $('#lick-detail');
+    if (!l) {
+      det.innerHTML = `<div class="lick-empty"><p>${esc(tr('noFit'))}</p>${state.lickFitOnly ? `<button type="button" class="btn-ghost" data-lact="showAll">${esc(tr('showAll'))}</button>` : ''}</div>`;
+      return;
+    }
+    if (state.instrument === 'ukulele') {
+      det.innerHTML = `<div class="lick-empty"><p>${esc(tr('ukeNotice'))}</p><button type="button" class="btn-ghost" data-lact="toGuitar">${esc(tr('toGuitar'))}</button></div>`;
+      return;
+    }
+    const k = derived.key;
+    const tun = lickTuning();
+    const r = LK.realize(l, k, tun.midi);
+    const pl = LK.place(l, prog.chords);
+    const isLearned = learned.has(l.id);
+    // where it lands in this progression
+    const firstChord = chordAtBeat(pl.startBeat);
+    const barTxt = l.bars > 1 ? tr('barsRange', { a: pl.bar + 1, b: pl.bar + l.bars }) : tr('barOne', { a: pl.bar + 1 });
+    let where;
+    if (!pl.found) where = tr('where.missing', { chord: l.over });
+    else if (l.over === 'turn') where = tr('where.turn', { bars: barTxt });
+    else if (l.over === 'end') where = tr(state.ending === 'resolve' ? 'where.end' : 'where.endLoop', { bars: barTxt });
+    else if (l.over === 'any') where = tr('where.any', { bars: barTxt });
+    else where = tr('where.over', { bars: barTxt, chord: symbolText(firstChord) });
+    const chords = Array.from({ length: l.bars }, (_, b) => symbolText(chordAtBeat(pl.startBeat + b * 4)));
+    const tags = [tr('over.' + l.over), tr('lvl.' + l.lvl), l.box === 'M' ? tr('boxM') : l.box === '1→2' ? tr('boxSlide') : tr('box', { b: l.box }), tr('scaleNames.' + l.scale)]
+      .concat(l.techs.map((t) => tr('techs.' + t)));
+    // neck: the lick's notes over a faint view of its scale around that spot
+    const fr = r.notes.map((n) => n.f);
+    const lo = Math.min(...fr), hi = Math.max(...fr);
+    const sc = SC.build(l.scale, k.tonic);
+    const maxF = Math.max(12, hi + 2);
+    const seen = new Set();
+    const lickNotes = r.notes.filter((n) => { const key = n.s + ':' + n.f; if (seen.has(key)) return false; seen.add(key); return true; })
+      .map((n) => ({ s: n.s, f: n.f, m: n.m, label: state.scaleLabels === 'names' ? nn(T.spell(k.tonic.letter + [0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6][(n.m - k.tonic.pc + 120) % 12], n.m)) : n.label, cls: n.label === 'R' ? 'croot lick' : 'ctone lick' }));
+    const around = SC.wholeNeck(sc, tun.midi, maxF).filter((x) => x.f >= lo - 1 && x.f <= hi + 1 && !seen.has(x.s + ':' + x.f))
+      .map((x) => Object.assign(x, { label: '', cls: 'scale', out: true }));
+    const playingCtx = !!(lickCtx && A.playing);
+    det.innerHTML = `
+      <div class="lick-top">
+        <div class="lick-title">
+          <h3 class="lick-name">${esc(l.n[state.lang] || l.n.en)}</h3>
+          <p class="lick-tags">${tags.map((t) => `<span>${esc(t)}</span>`).join('')}</p>
+        </div>
+        <button type="button" class="btn-learned" data-lact="learned" aria-pressed="${isLearned}">${isLearned ? '✓ ' + esc(tr('learned')) : esc(tr('markLearned'))}</button>
+      </div>
+      <p class="lick-tip">${esc(l.tip[state.lang] || l.tip.en)}</p>
+      <div class="lick-controls">
+        <button type="button" class="btn-lick" id="lick-play" data-lact="play"></button>
+        <button type="button" class="btn-ghost btn-ctx" id="lick-ctx" data-lact="context" aria-pressed="${playingCtx}"></button>
+        <div class="speed">
+          <span class="mini-label">${esc(tr('speed'))}</span>
+          <div class="seg" role="group" id="lick-speed">${[0.5, 0.75, 1].map((v) => `<button type="button" data-speed="${v}" aria-pressed="${state.lickSpeed === v}">${v * 100}%</button>`).join('')}</div>
+        </div>
+        <span class="lick-status" id="lick-status" hidden></span>
+      </div>
+      <p class="lick-where">${esc(where)}</p>
+      <div class="tab-wrap">${D.tab(r.notes, { strings: tun.midi.length, names: tun.names, bars: l.bars, chords, aria: l.n.en })}</div>
+      <div class="neck-wrap lick-neck" id="lick-neck">${D.neck(tun.midi, tun.names, around.concat(lickNotes), { maxF, aria: l.n.en })}</div>
+      <p class="hint">${esc(tr('lickHint'))}${r.refingered ? ' ' + esc(tr('refingered', { tuning: tr('tunings.' + state.tuning) })) : ''}${!isFretted() ? ' ' + esc(tr('pianoNote')) : ''}</p>`;
+    syncRunButtons();
+  }
+
+  function lickHighlight(k, notes) {
+    if (k === lickHi) return;
+    lickHi = k;
+    $$('#lick-detail .is-sounding').forEach((el) => el.classList.remove('is-sounding'));
+    if (k < 0 || !notes || !notes[k]) return;
+    const n = notes[k];
+    $$(`#lick-detail .tb-note[data-k="${k}"]`).forEach((el) => el.classList.add('is-sounding'));
+    $$(`#lick-neck .n-note[data-m="${n.m}"]`).forEach((el) => el.classList.add('is-sounding'));
+  }
+  function lickStatus(text) {
+    const el = $('#lick-status');
+    if (!el) return;
+    el.hidden = !text;
+    el.textContent = text || '';
+    el.className = 'lick-status' + (text === tr('yourTurn') ? ' turn' : '');
+  }
+  function syncRunButtons() {
     syncScaleButton();
+    const p = $('#lick-play'), c = $('#lick-ctx');
+    if (p) { const on = scaleRunning() && runKind === 'lick'; p.innerHTML = `${on ? ICON.stop : ICON.play}<span>${esc(tr(on ? 'stopLick' : 'playLick'))}</span>`; p.setAttribute('aria-pressed', String(on)); }
+    if (c) { const on = !!(lickCtx && A.playing); c.innerHTML = `${on ? ICON.stop : ICON.loop}<span>${esc(tr(on ? 'stopLick' : 'playInContext'))}</span>`; c.setAttribute('aria-pressed', String(on)); }
+  }
+  function lickData() {
+    const l = currentLick();
+    if (!l) return null;
+    return { l, r: LK.realize(l, derived.key, lickTuning().midi), pl: LK.place(l, prog.chords) };
+  }
+  function playLickAlone() {
+    if (scaleRunning()) { stopScale(); return; }
+    const d = lickData(); if (!d) return;
+    if (A.playing) A.stop();
+    const res = A.lick(d.r.notes, state.tempo * state.lickSpeed);
+    if (!res) return;
+    runKind = 'lick';
+    runTimers = res.ms.map((ms, k) => setTimeout(() => lickHighlight(k, d.r.notes), ms));
+    runTimers.push(setTimeout(() => { runTimers = []; lickHighlight(-1); syncRunButtons(); }, res.endMs + 300));
+    syncRunButtons();
+  }
+  function playLickInContext() {
+    if (lickCtx && A.playing) { A.stop(); return; }
+    const d = lickData(); if (!d) return;
+    stopScale();
+    lickCtx = { start: d.pl.startBeat, notes: d.r.notes };
+    const melody = d.r.notes.map((n) => Object.assign({}, n, { t: n.t + d.pl.startBeat }));
+    A.play(events(), {
+      tempo: state.tempo * state.lickSpeed, loop: true, instrument: state.instrument, pattern: state.pattern, melody, melodyEvery: 2,
+      onStep: (i, beat, pass) => {
+        markPlaying(i);
+        if (!lickCtx) return;
+        const listen = pass % 2 === 0;
+        lickStatus(tr(listen ? 'listen' : 'yourTurn'));
+        let k = -1;
+        if (listen) lickCtx.notes.forEach((n, j) => { const s = lickCtx.start + n.t; if (beat >= s && beat < s + n.d) k = j; });
+        lickHighlight(k, lickCtx.notes);
+      },
+      onStop: () => { lickCtx = null; markPlaying(-1); syncPlay(); lickStatus(''); lickHighlight(-1); syncRunButtons(); },
+    });
+    syncPlay();
+    syncRunButtons();
   }
 
   function chordRef(i) { return `<b class="cref">${esc(symbolText(i))}</b>`; }
@@ -674,6 +850,40 @@
     });
     $('#chord-scales').addEventListener('click', onAct);
     $('#play-scale').addEventListener('click', playScale);
+    $('.panel-tabs').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tab]'); if (!b || b.dataset.tab === state.panelTab) return;
+      stopScale();
+      if (lickCtx && A.playing) A.stop();
+      state.panelTab = b.dataset.tab; persist(); renderScales();
+    });
+    $('.panel-tabs').addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      state.panelTab = state.panelTab === 'scales' ? 'licks' : 'scales'; persist(); renderScales();
+      $(`.panel-tabs [data-tab="${state.panelTab}"]`).focus();
+    });
+    $('#lick-filters').addEventListener('click', (e) => { const b = e.target.closest('[data-lfilter]'); if (!b) return; state.lickFilter = b.dataset.lfilter; persist(); renderLicks(); });
+    $('#lick-fit').addEventListener('change', (e) => { state.lickFitOnly = e.target.checked; persist(); renderLicks(); });
+    $('#lick-list').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-lick]'); if (!b) return;
+      stopScale(); if (lickCtx && A.playing) A.stop();
+      state.lickId = b.dataset.lick; persist(); renderLicks();
+    });
+    $('#lick-detail').addEventListener('click', (e) => {
+      const sp = e.target.closest('[data-speed]');
+      if (sp) { state.lickSpeed = +sp.dataset.speed; persist(); const wasCtx = lickCtx && A.playing; stopScale(); if (wasCtx) A.stop(); renderLicks(); if (wasCtx) playLickInContext(); return; }
+      const b = e.target.closest('[data-lact]'); if (!b) return;
+      const act = b.dataset.lact;
+      if (act === 'play') playLickAlone();
+      else if (act === 'context') playLickInContext();
+      else if (act === 'showAll') { state.lickFitOnly = false; state.lickFilter = 'all'; persist(); renderLicks(); }
+      else if (act === 'toGuitar') { state.instrument = 'guitar'; shapePick = {}; refresh(true); }
+      else if (act === 'learned') {
+        const l = currentLick(); if (!l) return;
+        const set = new Set(state.learned);
+        if (set.has(l.id)) set.delete(l.id); else set.add(l.id);
+        state.learned = [...set]; persist(); renderLicks();
+      }
+    });
     $('#history').addEventListener('click', (e) => { const b = e.target.closest('[data-hist]'); if (b) restore(history[+b.dataset.hist]); });
 
     document.addEventListener('keydown', (e) => {

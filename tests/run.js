@@ -109,5 +109,30 @@ console.log('• Function labels');
   check('♭II in minor = Neapolitan, predominant', f('bII', 'minor'), ['neapolitan', 'PD', false]);
 }
 
+/* ---------- licks ---------- */
+console.log('• Licks');
+{
+  require(path.join(__dirname, '..', 'js', 'licks.js'));
+  const LK = globalThis.Cadence.licks;
+  const kA = keyOf('A', 'minor'), kAM = keyOf('A', 'major');
+  // Every note is in the lick's scale, except the deliberate chromatic passing notes.
+  const CHROMATIC_OK = { turnaround: ['6', '♭6'], 'iv-third': [], 'v-leading': ['7'] };
+  for (const l of LK.LICKS) {
+    const k = l.fam === 'major' ? kAM : kA;
+    const sc = S.build(l.scale === 'blues' || l.id === 'ending' ? 'blues' : l.scale, k.tonic);
+    const outside = LK.realize(l, k).notes.filter((n) => !sc.pcs.has(n.m % 12)).map((n) => n.label);
+    check(`${l.id}: notes stay in its scale`, outside.filter((x) => !(CHROMATIC_OK[l.id] || []).includes(x)), []);
+  }
+  check('Box 1 in A sits at frets 5–8', (() => { const f = LK.realize(LK.LICKS.find((l) => l.id === 'walk-down'), kA).notes.map((n) => n.f); return [Math.min(...f), Math.max(...f)]; })(), [5, 8]);
+  const blues = ['I7', 'I7', 'I7', 'I7', 'IV7', 'IV7', 'I7', 'I7', 'V7', 'IV7', 'I7', 'V7'].map((t) => Object.assign(T.parseRoman(t), { beats: 4 }));
+  const at = (id) => LK.place(LK.LICKS.find((l) => l.id === id), blues).bar + 1;
+  check('12-bar: “over the IV” lands in bar 5', at('over-iv'), 5);
+  check('12-bar: “over the V” lands in bar 9', at('over-v'), 9);
+  check('12-bar: the turnaround takes bars 11–12', at('turnaround'), 11);
+  check('Minor licks fit a blues in a major key', LK.fits(LK.LICKS[0], kAM, 'blues'), true);
+  check('Minor licks don’t claim to fit a jazz tune in major', LK.fits(LK.LICKS[0], kAM, 'jazz'), false);
+  check('Drop D only moves notes on the low string', LK.realize(LK.LICKS.find((l) => l.id === 'walk-down'), kA, V.TUNINGS.dropD.midi).notes.map((n) => n.s + ':' + n.f).join(' '), '5:8 5:5 4:8 4:5 3:7 3:5 2:7');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
