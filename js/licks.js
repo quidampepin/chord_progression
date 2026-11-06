@@ -72,9 +72,9 @@
     L('over-v', 'minorPent', 'V', 2, 'Lean on the V', 'S’appuyer sur le V', '4:1:b 5 4 5:2:~',
       'Bend the 4th up to the 5th: that’s the root of the V chord. Touch the 4th again (its ♭7) and come back. You’re playing the chord’s own notes.',
       'Tirez la quarte jusqu’à la quinte : c’est la fondamentale du V. Retouchez la quarte (sa ♭7) et revenez. Vous jouez les notes de l’accord lui-même.'),
-    L('v-leading', 'minorPent', 'V', 2, 'Half step into the I', 'Demi-ton vers le I', '5 4 7_ R:2.5:h+~',
-      'The 3rd of the V chord sits a half step below the key’s root. Play it, then step up into the root: the strongest pull in a blues.',
-      'La tierce de l’accord V est un demi-ton sous la tonique. Jouez-la puis montez vers la tonique : l’attraction la plus forte du blues.', { chrom: ['7'] }),
+    L('v-leading', 'minorPent', 'V', 2, 'Half step into the I', 'Demi-ton vers le I', 'x:2 5 4 7_:1 R:4:h+~',
+      'The 3rd of the V chord sits a half step below the key’s root. Play it at the end of the V bar, then step up into the root right as the I chord arrives: the strongest pull in a blues.',
+      'La tierce de l’accord V est un demi-ton sous la tonique. Jouez-la à la fin de la mesure du V, puis montez vers la tonique au moment où arrive l’accord I : l’attraction la plus forte du blues.', { chrom: ['7'] }),
     L('box4-run', 'minorPent', 'any', 2, 'High run down', 'Descente aiguë', '5^ 4^ b3^ R^ b7 5 R:1:~',
       'A descent from high on the neck. In position 4 it starts on the 5th under your index finger.',
       'Une descente depuis le haut du manche. En position 4, elle part de la quinte sous l’index.', { pos: 4 }),
@@ -210,10 +210,10 @@
       'On tourne autour de la tonique par la ♭7 et la ♭6 : une forme classique du hard rock et du métal.'),
 
     /* ===== harmonic minor ===== */
-    L('harm-v', 'harmonicMinor', 'V', 2, 'Leading tone over the V', 'La sensible sur le V', '5 b6 5 4 b3 2 7_ R',
+    L('harm-v', 'harmonicMinor', 'V', 2, 'Leading tone over the V', 'La sensible sur le V', 'x 5 b6 5 4 b3 2 7_ R:4:~',
       'Over the major V chord, harmonic minor’s raised 7th is the leading tone. It sits a half step below the root and pulls hard into it.',
       'Sur l’accord V majeur, la 7e haussée de la mineure harmonique est la sensible. Elle est un demi-ton sous la tonique et y conduit fortement.'),
-    L('harm-dim', 'harmonicMinor', 'V', 2, 'Diminished arpeggio', 'Arpège diminué', '7_:t 2:t 4:t b6:t 4:t 2:t 7_:1 R:1:~',
+    L('harm-dim', 'harmonicMinor', 'V', 2, 'Diminished arpeggio', 'Arpège diminué', '7_:t 2:t 4:t b6:t 4:t 2:t 7_:2 R:4:~',
       'The 7, 2, 4 and ♭6 of harmonic minor form a diminished chord, the most tense sound over the V. It resolves onto the root.',
       'Les degrés 7, 2, 4 et ♭6 de la mineure harmonique forment un accord diminué, le son le plus tendu sur le V. Il se résout sur la tonique.'),
     L('neo-run', 'harmonicMinor', 'any', 2, 'Neoclassical run', 'Course néoclassique', 'R^:t 7:t b6:t 5:t 4:t b3:t 2:t R:t 7_:t R:1:~',
@@ -250,8 +250,8 @@
     L('maj-iv', 'ionian', 'IV', 1, 'Land on the IV', 'Se poser sur le IV', 'R^ 7 6 5 4:1 6:1:~',
       'Down the scale onto the 4th and 6th: the root and 3rd of the IV chord.',
       'On descend la gamme jusqu’à la quarte et la sixte : fondamentale et tierce de l’accord IV.'),
-    L('maj-v', 'ionian', 'V', 1, 'From the V home', 'Du V vers la maison', '5 4 2 7_ R:2:~',
-      'Notes of the V chord (5, 4, 2 and the 7th) leading to the root. The 7th, a half step below the root, does the pulling.',
+    L('maj-v', 'ionian', 'V', 1, 'From the V home', 'Du V vers la maison', 'x:2 5 4 2 7_ R:4:~',
+      'Notes of the V chord (5, 4, 2 and the 7th) at the end of its bar, landing on the root as the next chord arrives. The 7th, a half step below the root, does the pulling.',
       'Les notes de l’accord V (quinte, quarte, seconde et septième) qui mènent à la tonique. La septième, un demi-ton sous la tonique, tire vers elle.'),
 
     /* ===== jazz ii–V–I ===== */
@@ -266,7 +266,87 @@
       'À la fin de la mesure du V, la phrase encercle la cible : une note au-dessus (4), une en dessous (♭3), puis se pose sur la tierce du I.', { chrom: ['♭3'] }),
     L('bebop-down', 'ionian', 'I', 2, 'Bebop scale down', 'Gamme bebop descendante', 'R^ 7 6 #5 5 4 3 2',
       'The major scale with an extra passing note between 6 and 5. It puts every chord tone (R, 3, 5, 6) on a beat.',
-      'La gamme majeure avec une note de passage entre la sixte et la quinte. Toutes les notes de l’accord tombent ainsi sur les temps.', { chrom: ['♯5'] }),
+      'La gamme majeure avec une note de passage entre la sixte et la quinte. Toutes les notes de l’accord tombent ainsi sur les temps.', { chrom: ['♯5'], styles: ['jazz'] }),
+
+    /* ===== more styles ===== */
+    L('oblique', 'minorPent', 'I', 2, 'Oblique bend', 'Tiré oblique', '4{b}+b7:1 5 R^ b3^::qb R^:1:~ x',
+      'Bend the 4th up to the 5th while the ♭7 rings on the next string, the two notes of a dominant 7th chord. A classic rock and blues-rock sound.',
+      'Tirez la quarte jusqu’à la quinte pendant que la ♭7 sonne sur la corde voisine : deux notes d’un accord de septième. Un son classique du blues-rock.', { styles: ['rock', 'blues'] }),
+    L('rock-climb', 'minorPent', 'I', 2, 'Climb and bend to the root', 'Monter et tirer vers la tonique', '5 b7:1:b R^ b3^ R^:1.5:~',
+      'Climb from the 5th, bend the ♭7 up a whole step into the root, then hang on the top root with vibrato.',
+      'Montez depuis la quinte, tirez la ♭7 d’un ton jusqu’à la tonique, puis tenez la tonique aiguë avec vibrato.', { styles: ['rock'], pos: 2 }),
+    L('pedal-point', 'aeolian', 'any', 1, 'Pedal-point riff', 'Riff en pédale', 'R_ 5 R_ b6 R_ 5 R_ 4',
+      'Alternate a low root with a melody above it. The low note keeps pounding while the top moves: a heavy-metal staple.',
+      'Alternez une tonique grave et une mélodie au-dessus. La note grave martèle pendant que le haut bouge : un classique du métal.', { styles: ['metal', 'rock'] }),
+    L('synth-arp', 'aeolian', 'I', 1, 'Minor arpeggio pulse', 'Pulsation d’arpège mineur', 'R b3 5 R^ 5 b3 R b3',
+      'The notes of the minor tonic chord in steady eighths, like a synth arpeggiator. Play it short and even.',
+      'Les notes de l’accord mineur de tonique en croches régulières, comme un arpégiateur. Jouez court et régulier.', { styles: ['synthwave', 'cinematic'] }),
+    L('synth-bvi', 'aeolian', 'any', 1, 'Rising minor hook', 'Accroche mineure ascendante', 'R 2 b3 5:1 b3 R:1',
+      'A small rising hook that peaks on the 5th and falls back. Repeat it over every chord of a minor loop and listen to how its colour changes.',
+      'Une petite accroche qui monte jusqu’à la quinte et redescend. Répétez-la sur chaque accord d’une boucle mineure et écoutez sa couleur changer.', { styles: ['synthwave', 'pop'] }),
+    L('octave-melody', 'ionian', 'I', 2, 'Octave melody', 'Mélodie en octaves', 'R+R^:1 2+2^ 3+3^:1.5 5+5^:1',
+      'Each note doubled an octave higher, two strings apart, muting the string in between. Big and clear: pop-punk and indie rock.',
+      'Chaque note doublée à l’octave, deux cordes plus loin, en étouffant la corde du milieu. Gros et clair : pop-punk et rock indé.', { styles: ['punk', 'rock', 'pop'] }),
+    L('funk-16ths', 'dorian', 'I', 2, 'Sixteenth-note funk', 'Funk en doubles croches', 'R:.25 R:.25 x b3:.25 4:.25 x 6 4 b3 R',
+      'Short, tight sixteenth notes with rests between them. Keep your strumming hand moving even during the rests.',
+      'Des doubles croches courtes et serrées, avec des silences. Gardez la main droite en mouvement même pendant les silences.', { styles: ['funk', 'soul'] }),
+    L('reggae-melody', 'majorPent', 'I', 1, 'Off-beat melody', 'Mélodie à contretemps', 'x 3 5 6 5 3 R:1',
+      'It starts after the beat, like the reggae “skank”. Leave that first silence: the off-beat is the whole feel.',
+      'Elle commence après le temps, comme le « skank » reggae. Respectez ce premier silence : le contretemps, c’est tout le groove.', { styles: ['reggae', 'pop'] }),
+    L('gospel-run', 'majorBlues', 'I', 2, 'Gospel run', 'Course gospel', 'R^ 6 5 b3 3::h 2 R:1:~',
+      'Down from the root with the bluesy ♭3 hammered into the major 3rd: the sound of church piano, on guitar.',
+      'On descend depuis la tonique avec la ♭3 bleue liée à la tierce majeure : le son du piano d’église, à la guitare.', { styles: ['gospel', 'soul'] }),
+    L('soul-321', 'majorPent', 'end', 1, 'Soul 3–2–1 ending', 'Fin soul 3–2–1', '3:1:si 2 R 6_ R:1.5:~',
+      'Slide into the 3rd, then step down 3, 2, 1 with a dip to the 6th below. A warm, vocal way to end.',
+      'Glissez vers la tierce, puis descendez 3, 2, 1 avec un détour par la sixte grave. Une fin chaleureuse et vocale.', { styles: ['soul', 'gospel', 'pop'] }),
+    L('country-ending', 'majorBlues', 'end', 1, 'Country ending', 'Fin country', '6 5 b3 3::h R:2:~',
+      'The 6th, the 5th, the blue ♭3 sliding into the 3rd, and home. Short and twangy.',
+      'La sixte, la quinte, la ♭3 bleue qui glisse vers la tierce, et retour à la maison. Court et twangy.', { styles: ['country'] }),
+    L('bb-box', 'majorBlues', 'I', 2, 'Blues box above the root', 'Boîte blues autour de la tonique', 'R^ 2^::b R^ 6 4::b 3 R:1:~',
+      'A compact shape just above the root: bend the 2nd up to the 3rd, then the 4th up to the 5th. Classic electric-blues phrasing.',
+      'Une forme compacte juste au-dessus de la tonique : tirez la seconde jusqu’à la tierce, puis la quarte jusqu’à la quinte. Le phrasé du blues électrique.', { styles: ['blues'], chrom: ['4'] }),
+    L('boogie', 'mixolydian', 'I', 1, 'Boogie bass line', 'Ligne boogie', 'R_ 3_ 5_ 6_ b7_ 6_ 5_ 3_',
+      'Up and down the I7 chord with the 6th added, in steady eighths: the rolling boogie-woogie bass line. Swing it.',
+      'On monte et descend l’accord I7 avec la sixte, en croches régulières : la ligne de basse boogie-woogie. Jouez-la swing.', { styles: ['blues', 'rock'] }),
+    L('maj7-9', 'ionian', 'I', 2, 'Up to the 9th', 'Jusqu’à la neuvième', '3 5 7 2^:1.5:~ R^ 7',
+      'Climb the major 7 chord and keep going to the 9th. Holding the 9th gives a soft, open, bossa or neo-soul colour.',
+      'Montez l’accord majeur 7 et continuez jusqu’à la neuvième. Tenir la neuvième donne une couleur douce et ouverte, bossa ou néo-soul.', { styles: ['bossa', 'soul', 'jazz'] }),
+    L('chromatic-approach', 'ionian', 'I', 2, 'Chromatic approach', 'Approche chromatique', '3 4 #4 5:1 6 5:1:~',
+      'A chromatic passing note (♯4) slides into the 5th. Chromatic notes sound great as long as they move on to a chord tone.',
+      'Une note de passage chromatique (♯4) glisse vers la quinte. Les notes chromatiques sonnent bien tant qu’elles mènent à une note de l’accord.', { styles: ['jazz', 'bossa', 'soul'], chrom: ['♯4'] }),
+    L('minor-iivi', 'harmonicMinor', 'iiVI', 2, 'Minor ii–V–i', 'ii–V–i mineur', '2 4 b6 R^ 2^ R^ b6 4 7_ 2 4 b6 5 4 2 7_ b3:2:~ x:2',
+      'Arpeggios of the half-diminished ii and the V7♭9, the leading tone (7) pulling into the minor tonic, landing on its ♭3.',
+      'Arpèges du ii demi-diminué et du V7♭9, la sensible (7) qui conduit à la tonique mineure, pour se poser sur sa ♭3.', { styles: ['jazz', 'bossa'] }),
+    L('lydian-4', 'lydian', 'I', 1, 'The Lydian ♯4', 'Le ♯4 lydien', 'R 2 3 #4:1:~ 5 3:1',
+      'Lydian is the major scale with a raised 4th. Hold that ♯4 and you get the dreamy, floating sound of film scores.',
+      'Le lydien, c’est la gamme majeure avec une quarte haussée. Tenez ce ♯4 et vous obtenez le son rêveur des musiques de film.', { styles: ['cinematic', 'synthwave'] }),
+    L('lydian-arp', 'lydian', 'I', 2, 'Lydian shimmer', 'Miroitement lydien', 'R 3 5 7 #4^:1:~ 5 x',
+      'Major 7 arpeggio topped with the ♯4: bright and suspended, as if the music were hovering.',
+      'Un arpège majeur 7 couronné du ♯4 : lumineux et suspendu, comme si la musique flottait.', { styles: ['cinematic'] }),
+    L('flamenco-turn', 'phrygianDom', 'any', 1, 'Flamenco turn', 'Tournure flamenca', '3 4 3 b2 R:2:~',
+      'A small turn around the major 3rd that falls through the ♭2 onto the root. Play it with a light, quick touch.',
+      'Un petit tour autour de la tierce majeure qui tombe par le ♭2 sur la tonique. Jouez-le avec légèreté.', { styles: ['flamenco'] }),
+    L('flamenco-sigh', 'phrygianDom', 'any', 1, 'Flamenco sigh', 'Soupir flamenco', '5 4 3 4 b2:1 R:1:~',
+      'A little turn around the major 3rd, then the ♭2 leaning into the root: the falling sigh at the end of so many flamenco phrases.',
+      'Un petit tour autour de la tierce majeure, puis le ♭2 qui s’appuie sur la tonique : le soupir qui termine tant de phrases flamencas.', { styles: ['flamenco'] }),
+    L('flamenco-descent', 'phrygianDom', 'any', 2, 'Phrygian-dominant descent', 'Descente phrygienne dominante', 'R^ b7 b6 5 b6:t 5:t 4:t 3:1:~',
+      'Down from the root through the ♭7 and ♭6, a quick triplet, and onto the major 3rd that makes this mode sound Spanish.',
+      'On descend depuis la tonique par la ♭7 et la ♭6, un triolet rapide, et on se pose sur la tierce majeure qui donne à ce mode son air espagnol.', { styles: ['flamenco', 'metal'] }),
+    L('celtic-roll', 'dorian', 'any', 1, 'Celtic roll', 'Ornement celtique', 'R:t 2:t R:t b7_ R 4 5:1.5:~',
+      'A quick triplet ornament around the root, as fiddlers and pipers play, then a leap up to the 5th.',
+      'Un ornement rapide en triolet autour de la tonique, à la manière des violoneux, puis un saut vers la quinte.', { styles: ['folk'] }),
+    L('mixo-folk', 'mixolydian', 'any', 1, 'Mixolydian folk tune', 'Air folk mixolydien', 'R 2 3 5 b7:1 5 3',
+      'A folk-dance phrase that reaches up to the ♭7, the note that gives Celtic and old-time tunes their modal sound.',
+      'Une phrase de danse folk qui monte jusqu’à la ♭7, la note qui donne aux airs celtiques et traditionnels leur son modal.', { styles: ['folk', 'rock'] }),
+    L('pop-hook2', 'majorPent', 'any', 1, 'Repeated-note hook', 'Accroche sur note répétée', '5 5 6 5 3:1 2:1',
+      'Pop hooks often repeat one note before moving. Simple, singable, easy to remember.',
+      'Les accroches pop répètent souvent une note avant de bouger. Simple, chantable, facile à retenir.', { styles: ['pop', 'reggae'] }),
+    L('pop-climax', 'ionian', 'I', 2, 'Soaring climax', 'Envolée', '3 5 R^:1 7 R^ 2^:1:~',
+      'A leap to the high root, a step down and back up to the 9th: the kind of line that ends a big chorus.',
+      'Un saut vers la tonique aiguë, un pas en bas, puis jusqu’à la neuvième : le genre de phrase qui conclut un grand refrain.', { styles: ['pop', 'cinematic'] }),
+    L('neo-soul-9', 'ionian', 'I', 2, 'Neo-soul descent', 'Descente néo-soul', '2^ R^ 7 5 3 2 R:1',
+      'Start on the 9th and float down through the major 7th. Laid back, slightly behind the beat.',
+      'Partez de la neuvième et descendez en douceur par la septième majeure. Décontracté, un peu derrière le temps.', { styles: ['soul', 'jazz'] }),
   ];
 
   /* ---------- parsing the melody notation ---------- */
@@ -295,6 +375,12 @@
   }
 
   const BEND = { b: 2, hb: 1, qb: 0.5 };
+  // Styles a lick belongs to, when it doesn't say: the styles its scale is typical of.
+  const STYLE_OF_SCALE = {
+    minorPent: ['blues', 'rock'], blues: ['blues', 'rock'], majorPent: ['country', 'pop'], majorBlues: ['blues', 'country'],
+    mixolydian: ['blues', 'rock', 'funk'], dorian: ['funk', 'soul', 'jazz'], aeolian: ['rock', 'pop', 'cinematic'],
+    harmonicMinor: ['metal', 'cinematic'], phrygian: ['metal'], phrygianDom: ['flamenco', 'metal'], ionian: ['pop', 'folk', 'jazz'], lydian: ['cinematic'],
+  };
   const SEMI = ['R', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'];
   LICKS.forEach((l) => {
     const p = parseLine(l.line);
@@ -307,6 +393,7 @@
     l.techs = [...tech];
     l.chrom = l.chrom || [];
     l.pos = l.pos || 1;
+    l.styles = l.styles || STYLE_OF_SCALE[l.scale] || [];
   });
 
   /* ---------- which licks suit this key and style ---------- */
@@ -324,6 +411,7 @@
       case 'phrygianDom': return mode === 'phrygianDom';
       case 'phrygian': return mode === 'phrygian';
       case 'ionian': return mode === 'major' && styleId !== 'blues';
+      case 'lydian': return mode === 'lydian';
     }
     return false;
   }
@@ -412,34 +500,101 @@
     };
   }
 
-  /* ---------- where it goes in the progression ---------- */
-  const OVER_ROOT = { I: 0, IV: 5, V: 7 };
-  function place(l, chords) {
-    let start = 0;
-    const slots = [];
-    chords.forEach((c) => { slots.push({ start, beats: c.beats, rootPc: c.rootPc, bar: Math.floor(start / 4) }); start += c.beats; });
-    const total = start;
-    const totalBars = Math.round(total / 4);
-    if (l.over === 'turn' || l.over === 'end') {
-      const b = Math.max(0, totalBars - l.bars);
-      return { startBeat: b * 4, bar: b, found: true, totalBars };
-    }
-    if (l.over === 'iiVI') {
-      for (let i = 0; i + 2 < slots.length; i++) {
-        const [a, b, c] = [slots[i], slots[i + 1], slots[i + 2]];
-        if (a.rootPc === 2 && b.rootPc === 7 && c.rootPc === 0 && a.beats === 4 && b.beats === 4 && a.start % 4 === 0) return { startBeat: a.start, bar: a.bar, found: true, totalBars };
-      }
-      return { startBeat: 0, bar: 0, found: false, totalBars };
-    }
-    if (l.over in OVER_ROOT) {
-      const want = OVER_ROOT[l.over];
-      const hit = slots.find((x) => x.rootPc === want && x.start % 4 === 0 && x.start + l.bars * 4 <= total)
-        || slots.find((x) => x.rootPc === want && x.start + l.bars * 4 <= total + 2);
-      if (hit) return { startBeat: hit.start, bar: hit.bar, found: true, totalBars };
-      return { startBeat: 0, bar: 0, found: false, totalBars };
-    }
-    return { startBeat: 0, bar: 0, found: true, totalBars };
+  /* ---------- does it fit THIS progression? ----------
+   * Every note is checked against the chord sounding under it:
+   *   chord tone ........................ good
+   *   note of that chord's scale ........ fine (a tension)
+   *   avoid note (half step above a chord tone, same rule as the Scales tab) ... rubs
+   *   outside the chord's scale, a half step from a chord tone ............... clashes
+   *   blue notes (♭3, ♭5, ♭7 over a major/dominant chord) are fine in bluesy styles
+   * Long notes and notes on the beat count more; quick passing notes count less; the last note counts double.
+   * The lick is tried at every possible start and placed where it fits best.
+   */
+  const BLUE_STYLES = new Set(['blues', 'rock', 'punk', 'metal', 'funk', 'soul', 'gospel', 'country']);
+  function chordInfoCache(chords, key, styleId) {
+    return chords.map((c) => {
+      const hq = T.harm(c);
+      const r = T.realize(Object.assign({}, c, { quality: hq }), key);
+      const o = S.chordScale(c, key, styleId).options[0];
+      const sc = S.build(o.id, o.root);
+      return { pcs: new Set(r.pcs), root: r.root.pc, fam: T.Q[hq].fam, scale: sc.pcs, avoid: new Set(S.avoidNotes(sc, c, key)) };
+    });
+  }
+  function judge(pc, info, bluesy) {
+    if (info.pcs.has(pc)) return 'ct';
+    const rel = mod(pc - info.root, 12);
+    if (bluesy && ['maj', 'dom', 'pow', 'sus'].includes(info.fam) && (rel === 3 || rel === 6 || rel === 10)) return 'blue';
+    if (info.scale.has(pc)) return info.avoid.has(pc) ? 'avoid' : 'tension';
+    for (const c of info.pcs) if (Math.abs(mod(pc - c + 6, 12) - 6) === 1) return 'clash';
+    return 'outside';
+  }
+  const VALUE = { ct: 1, tension: 0.35, blue: 0.15, avoid: -0.7, outside: -0.6, clash: -1.4 };
+  function evaluate(l, chords, key, styleId, startBeat, cache) {
+    const info = cache || chordInfoCache(chords, key, styleId);
+    const starts = [];
+    let acc = 0;
+    chords.forEach((c) => { starts.push(acc); acc += c.beats; });
+    const total = acc;
+    const at = (beat) => { const b = mod(beat, total); let i = 0; for (let j = 0; j < starts.length; j++) if (starts[j] <= b + 1e-6) i = j; return i; };
+    const bluesy = BLUE_STYLES.has(styleId);
+    const lastT = Math.max(...l.notes.map((n) => n.t));
+    let sum = 0, wsum = 0, lastBad = false;
+    const kinds = l.notes.map((n) => {
+      const bend = n.tech.find((t) => t === 'b' || t === 'hb');
+      const semi = n.semi + (bend ? BEND[bend] : 0);           // a bend is heard at its target
+      const pc = mod(key.tonic.pc + semi, 12);
+      const kind = judge(pc, info[at(startBeat + n.t)], bluesy || n.tech.includes('qb'));
+      const onBeat = Math.abs(n.t - Math.round(n.t)) < 0.01;
+      let w = Math.min(n.d, 2) * (onBeat ? 1.3 : 1);
+      const v = VALUE[kind];
+      if (v < 0 && n.d <= 0.5 && !onBeat) w *= 0.35;          // quick off-beat notes are passing notes
+      if (n.t === lastT) { w *= 2; if (v < 0) lastBad = true; }
+      sum += v * w; wsum += w;
+      return kind;
+    });
+    const score = wsum ? sum / wsum : 0;
+    const grade = lastBad || score < 0.15 ? 'poor' : score < 0.45 ? 'ok' : 'good';
+    return { score, grade, kinds };
   }
 
-  C.licks = { LICKS, fits, realize, place, parseLine, BEND };
+  const OVER_ROOT = { I: 0, IV: 5, V: 7 };
+  function place(l, chords, key, styleId) {
+    const slots = [];
+    let acc = 0;
+    chords.forEach((c) => { slots.push({ start: acc, beats: c.beats, rootPc: c.rootPc }); acc += c.beats; });
+    const total = acc, totalBars = Math.round(total / 4), need = l.bars * 4;
+    let starts = [];
+    let reason = null;
+    const lastRoot = slots[slots.length - 1].rootPc;
+    if (l.over === 'turn' || l.over === 'end') {
+      starts = [Math.max(0, totalBars - l.bars) * 4];
+      if (l.over === 'turn' && lastRoot !== 7) reason = 'noTurn';
+      if (l.over === 'end' && lastRoot !== 0) reason = 'noEnd';
+      if (reason) return { startBeat: starts[0], bar: Math.floor(starts[0] / 4), found: false, reason, totalBars, grade: 'poor', score: -1, kinds: l.notes.map(() => 'outside') };
+    } else if (l.over === 'iiVI') {
+      for (let i = 0; i + 2 < slots.length; i++) {
+        const [a, b, c] = [slots[i], slots[i + 1], slots[i + 2]];
+        if (a.rootPc === 2 && b.rootPc === 7 && c.rootPc === 0 && a.beats === 4 && b.beats === 4 && a.start % 4 === 0) starts.push(a.start);
+      }
+      if (!starts.length) reason = 'noIIVI';
+    } else if (l.over in OVER_ROOT) {
+      // a lick may run past the last bar: the loop carries it into bar 1 (that's how V licks resolve home)
+      starts = slots.filter((x) => x.rootPc === OVER_ROOT[l.over] && (x.start + need <= total + 2 || x.start % 4 === 0)).map((x) => x.start);
+      if (!starts.length) reason = 'noChord';
+    } else {
+      for (let b = 0; b * 4 + need <= total; b++) starts.push(b * 4);
+      if (!starts.length) starts = [0];
+    }
+    if (!starts.length) return { startBeat: 0, bar: 0, found: false, reason, totalBars, grade: 'poor', score: -1, kinds: l.notes.map(() => 'outside') };
+    if (!key) return { startBeat: starts[0], bar: Math.floor(starts[0] / 4), found: true, totalBars };
+    const cache = chordInfoCache(chords, key, styleId);
+    let best = null;
+    for (const st of starts) {
+      const ev = evaluate(l, chords, key, styleId, st, cache);
+      if (!best || ev.score > best.score + 1e-9) best = Object.assign({ startBeat: st }, ev);
+    }
+    return Object.assign(best, { bar: Math.floor(best.startBeat / 4), found: true, totalBars });
+  }
+
+  C.licks = { LICKS, fits, realize, place, evaluate, parseLine, BEND };
 })(typeof window !== 'undefined' ? (window.Cadence = window.Cadence || {}) : (globalThis.Cadence = globalThis.Cadence || {}));

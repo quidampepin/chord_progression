@@ -568,10 +568,23 @@
   let lickCtx = null;      // set while a lick plays over the progression
   let lickHi = -1;
   const SCALE_ORDER = ['minorPent', 'blues', 'majorPent', 'majorBlues', 'mixolydian', 'dorian', 'aeolian', 'harmonicMinor', 'phrygian', 'phrygianDom', 'ionian'];
+  // How every lick fits the CURRENT progression: checked note by note against the chords under it.
+  let fitCache = { sig: '', map: new Map() };
+  function lickFit(l) {
+    const sig = [state.tonic, state.mode, state.style, prog.chords.map((c) => c.rootPc + c.quality + c.beats).join('.')].join('|');
+    if (fitCache.sig !== sig) fitCache = { sig, map: new Map() };
+    if (!fitCache.map.has(l.id)) {
+      const p = LK.place(l, prog.chords, derived.key, state.style);
+      if (!LK.fits(l, derived.key, state.style) && p.grade !== 'poor') p.grade = 'ok'; // right notes, but not the usual sound for this key/style
+      fitCache.map.set(l.id, p);
+    }
+    return fitCache.map.get(l.id);
+  }
+  const GRADE_RANK = { good: 0, ok: 1, poor: 2 };
   function baseLickList() {
-    const k = derived.key;
-    let list = state.lickFitOnly && !state.lickScale ? LK.LICKS.filter((l) => LK.fits(l, k, state.style)) : LK.LICKS.slice();
+    let list = LK.LICKS.slice();
     if (state.lickScale) list = list.filter((l) => l.scale === state.lickScale);
+    else if (state.lickFitOnly) list = list.filter((l) => LK.fits(l, derived.key, state.style) && lickFit(l).grade !== 'poor');
     return list;
   }
   function currentLickList() {
@@ -579,7 +592,10 @@
     const f = state.lickFilter;
     if (f === 'turn') list = list.filter((l) => l.over === 'turn' || l.over === 'end');
     else if (f !== 'all') list = list.filter((l) => l.over === f);
-    return list.sort((a, b) => SCALE_ORDER.indexOf(a.scale) - SCALE_ORDER.indexOf(b.scale));
+    // grouped by scale; inside a group, best fit first, then licks from the current style
+    const styleFirst = (l) => (l.styles.includes(state.style) ? 0 : 1);
+    return list.map((l, i) => ({ l, i })).sort((a, b) => SCALE_ORDER.indexOf(a.l.scale) - SCALE_ORDER.indexOf(b.l.scale)
+      || GRADE_RANK[lickFit(a.l).grade] - GRADE_RANK[lickFit(b.l).grade] || styleFirst(a.l) - styleFirst(b.l) || a.i - b.i).map((x) => x.l);
   }
   function currentLick() {
     const list = currentLickList();
@@ -587,8 +603,10 @@
   }
   function lickTuning() { return state.instrument === 'guitar' ? currentTuning() : V.TUNINGS.standard; }
   function chordAtBeat(beat) {
+    const total = prog.chords.reduce((s, c) => s + c.beats, 0);
+    const b = ((beat % total) + total) % total; // a lick can run past the last bar into bar 1
     let start = 0, idx = 0;
-    prog.chords.forEach((c, i) => { if (start <= beat) idx = i; start += c.beats; });
+    prog.chords.forEach((c, i) => { if (start <= b + 1e-6) idx = i; start += c.beats; });
     return idx;
   }
   // Same lick, chosen position: follow the remembered area of the neck, else the lick's own home position.
@@ -615,7 +633,8 @@
     const learned = new Set(state.learned);
     const list = currentLickList();
     const l = currentLick();
-    $('#licks-sub').textContent = tr('licksSub', { n: LK.LICKS.length, m: LK.LICKS.filter((x) => learned.has(x.id)).length });
+    const nFit = LK.LICKS.filter((x) => LK.fits(x, k, state.style) && lickFit(x).grade !== 'poor').length;
+    $('#licks-sub').textContent = tr('licksSub', { n: LK.LICKS.length, f: nFit, m: LK.LICKS.filter((x) => learned.has(x.id)).length });
     $('#lick-fit').checked = state.lickFitOnly;
     $('#lick-fit').disabled = !!state.lickScale;
     const filters = ['all', 'I', 'IV', 'V', 'turn', 'any'].concat(baseLickList().some((x) => x.over === 'iiVI') ? ['iiVI'] : []);
@@ -631,7 +650,7 @@
         html += `<li class="lick-group">${esc(scaleName({ id: group, root: k.tonic }))}<span>${count}</span></li>`;
       }
       html += `<li><button type="button" class="lick-item${l && x.id === l.id ? ' on' : ''}" data-lick="${x.id}" aria-pressed="${!!(l && x.id === l.id)}">
-        <span class="li-name">${learned.has(x.id) ? '<span class="li-check" aria-label="' + esc(tr('learned')) + '">✓</span>' : ''}${esc(x.n[state.lang] || x.n.en)}</span>
+        <span class="li-name"><i class="fit-dot ${lickFit(x).grade}" title="${esc(tr('fitShort.' + lickFit(x).grade))}"></i>${learned.has(x.id) ? '<span class="li-check" aria-label="' + esc(tr('learned')) + '">✓</span>' : ''}${esc(x.n[state.lang] || x.n.en)}</span>
         <span class="li-meta">${esc(tr('over.' + x.over))} · ${esc(tr('lvl.' + x.lvl))}</span>
       </button></li>`;
     }
@@ -647,7 +666,7 @@
       return;
     }
     const { r, base, tun } = lickRealized(l);
-    const pl = LK.place(l, prog.chords);
+    const pl = lickFit(l);
     const isLearned = learned.has(l.id);
     const sc = r.scale;
     const pos = r.position;
@@ -655,7 +674,7 @@
     // where it lands in this progression
     const barTxt = l.bars > 1 ? tr('barsRange', { a: pl.bar + 1, b: pl.bar + l.bars }) : tr('barOne', { a: pl.bar + 1 });
     let where;
-    if (!pl.found) where = tr(l.over === 'iiVI' ? 'where.missingIIVI' : 'where.missing', { chord: l.over });
+    if (!pl.found) where = tr('where.' + ({ noIIVI: 'missingIIVI', noTurn: 'missingTurn', noEnd: 'missingEnd' }[pl.reason] || 'missing'), { chord: l.over });
     else if (l.over === 'turn') where = tr('where.turn', { bars: barTxt });
     else if (l.over === 'end') where = tr(state.ending === 'resolve' ? 'where.end' : 'where.endLoop', { bars: barTxt });
     else if (l.over === 'any') where = tr('where.any', { bars: barTxt });
@@ -665,7 +684,9 @@
 
     // degrees under the tab; green when the note belongs to the chord sounding at that moment
     const label = (n) => (state.scaleLabels === 'names' ? pitchName(n.m % 12, sc) : n.label);
-    const degrees = r.notes.map((n) => ({ label: label(n), ct: derived.realized[chordAtBeat(pl.startBeat + n.t)].pcs.includes(n.m % 12) }));
+    const KIND_CLASS = { ct: 'ct', clash: 'bad', avoid: 'warn', outside: 'warn' };
+    const degrees = r.notes.map((n, i) => ({ label: label(n), cls: KIND_CLASS[(pl.kinds || [])[i]] || '' }));
+    const nBad = (pl.kinds || []).filter((x) => x === 'clash').length;
 
     // the neck: the whole scale, the chosen position outlined, the lick as the highlighted path
     const inPos = new Set(pos.notes.map((x) => x.s + ':' + x.f));
@@ -677,7 +698,7 @@
     const lickNotes = r.notes.filter((n) => { const key = n.s + ':' + n.f; if (seen.has(key)) return false; seen.add(key); return true; })
       .map((n) => ({ s: n.s, f: n.f, m: n.m, label: label(n), cls: (n.label === 'R' ? 'croot' : 'ctone') + ' lick' + (n.inBox ? '' : ' passing') }));
 
-    const tags = [tr('over.' + l.over), tr('lvl.' + l.lvl)].concat(l.techs.map((t) => tr('techs.' + t)));
+    const tags = [tr('over.' + l.over), tr('lvl.' + l.lvl)].concat(l.styles.map((x) => tr('styles.' + x)), l.techs.map((t) => tr('techs.' + t)));
     const posChips = base.positions.map((p, i) => {
       const on = i === r.posIndex;
       const full = base.fullFit[i];
@@ -708,9 +729,10 @@
         </div>
         <span class="lick-status" id="lick-status" hidden></span>
       </div>
+      <p class="lick-fit ${pl.grade}"><i class="fit-dot ${pl.grade}"></i><span>${esc(tr('fitLong.' + (pl.found ? pl.grade : 'missing'), { n: nBad }))}</span></p>
       <p class="lick-where">${esc(where)}</p>
       <div class="tab-wrap">${D.tab(r.notes, { strings: tun.midi.length, names: tun.names, bars: l.bars, chords, degrees, aria: l.n.en })}</div>
-      <p class="tab-legend">${esc(tr('tabLegendDeg'))} <span class="tl-deg ct">${esc(tr('tabLegendGreen'))}</span> ${esc(tr('tabLegendCt'))}</p>
+      <p class="tab-legend">${esc(tr('tabLegendDeg'))} <span class="tl-deg ct">${esc(tr('tabLegendGreen'))}</span> ${esc(tr('tabLegendCt'))} <span class="tl-deg warn">${esc(tr('tabLegendAmber'))}</span> ${esc(tr('tabLegendRub'))} <span class="tl-deg bad">${esc(tr('tabLegendRed'))}</span> ${esc(tr('tabLegendClash'))}</p>
       <div class="pos-row lick-pos">
         <span class="mini-label">${esc(tr('position'))}</span>
         <div class="chips">${posChips}</div>
@@ -746,7 +768,7 @@
   function lickData() {
     const l = currentLick();
     if (!l) return null;
-    return { l, r: lickRealized(l).r, pl: LK.place(l, prog.chords) };
+    return { l, r: lickRealized(l).r, pl: lickFit(l) };
   }
   function playLickAlone() {
     if (scaleRunning()) { stopScale(); return; }

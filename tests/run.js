@@ -114,7 +114,7 @@ console.log('• Licks');
 {
   require(path.join(__dirname, '..', 'js', 'licks.js'));
   const LK = globalThis.Cadence.licks;
-  const MODE_OF = { minorPent: 'minor', blues: 'minor', majorPent: 'major', majorBlues: 'major', mixolydian: 'mixolydian', dorian: 'dorian', aeolian: 'minor', harmonicMinor: 'minor', phrygianDom: 'phrygianDom', phrygian: 'phrygian', ionian: 'major' };
+  const MODE_OF = { minorPent: 'minor', blues: 'minor', majorPent: 'major', majorBlues: 'major', mixolydian: 'mixolydian', dorian: 'dorian', aeolian: 'minor', harmonicMinor: 'minor', phrygianDom: 'phrygianDom', phrygian: 'phrygian', ionian: 'major', lydian: 'lydian' };
   const DEGS = { R: 0, '♭2': 1, '2': 2, '♭3': 3, '3': 4, '4': 5, '♭5': 6, '♯4': 6, '5': 7, '♯5': 8, '♭6': 8, '6': 9, '♭7': 10, '7': 11 };
   check('At least 70 licks', LK.LICKS.length >= 70, true);
   check('Lick ids are unique', new Set(LK.LICKS.map((l) => l.id)).size, LK.LICKS.length);
@@ -126,7 +126,7 @@ console.log('• Licks');
     const outside = l.notes.filter((n) => !sc.pcs.has((9 + n.semi + 120) % 12) && !ok.has((n.semi + 120) % 12)).map((n) => n.semi);
     check(`${l.id}: notes stay in ${l.scale}`, outside, []);
     // whole bars, so the lick lines up with the progression
-    const len = Math.max(...l.notes.map((n) => n.t + n.d));
+    const len = LK.parseLine(l.line).length; // rests count
     check(`${l.id}: fills whole bars`, Math.abs(len - Math.round(len)) < 0.02 && Math.round(len) <= l.bars * 4, true);
     // playable in its home position: frets in range, compact, bends not on open strings, double-stops on different strings
     const r = LK.realize(l, k, V.TUNINGS.standard.midi);
@@ -155,6 +155,24 @@ console.log('• Licks');
   check('Minor-pentatonic licks don’t claim to fit jazz in major', LK.fits(byId('bend-five'), kAM, 'jazz'), false);
   check('Dorian licks only for Dorian progressions', LK.fits(byId('dorian-6'), kA, 'funk'), false);
   check('Drop D only moves notes on the low string', LK.realize(byId('walk-down'), kA, V.TUNINGS.dropD.midi).notes.map((n) => n.s + ':' + n.f).join(' '), '5:8 5:5 4:8 4:5 3:7 3:5 2:7');
+  // the fit engine: real verdicts on real progressions
+  const fit = (id, tonic, mode, style, toks, ending) => {
+    const ch = toks.map((t) => Object.assign(T.parseRoman(t), { beats: 4 }));
+    const p = LK.place(byId(id), ch, keyOf(tonic, mode), style);
+    return p.found ? p.grade + '@' + (p.bar + 1) : 'missing:' + p.reason;
+  };
+  const twelve = ['I7', 'I7', 'I7', 'I7', 'IV7', 'IV7', 'I7', 'I7', 'V7', 'IV7', 'I7', 'V7'];
+  check('Fit: “Lean on the V” in a 12-bar lands on the V (bar 9)', fit('over-v', 'A', 'major', 'blues', twelve), 'good@9');
+  check('Fit: a V lick with no V chord is rejected', fit('over-v', 'A', 'major', 'rock', ['I', 'bVII', 'IV', 'I']), 'missing:noChord');
+  check('Fit: bending to the IV’s major 3rd clashes over a minor iv', fit('iv-third', 'A', 'minor', 'folk', ['i', 'iv', 'V7', 'i']), 'poor@2');
+  check('Fit: …but fits over the IV7 of a blues', fit('iv-third', 'A', 'major', 'blues', twelve), 'good@5');
+  check('Fit: the half-step lick resolves into the I across the barline', fit('v-leading', 'A', 'minor', 'folk', ['i', 'iv', 'V7', 'i']), 'good@3');
+  check('Fit: a turnaround needs a V chord at the end', fit('turnaround', 'A', 'minor', 'pop', ['i', 'bVI', 'bIII', 'bVII']), 'missing:noTurn');
+  check('Fit: an ending needs the progression to end on the tonic', fit('ending', 'A', 'major', 'blues', twelve), 'missing:noEnd');
+  check('Fit: guide tones fit a ii–V–I', fit('jazz-guide', 'C', 'major', 'jazz', ['ii7', 'V7', 'Imaj7', 'Imaj7']), 'good@1');
+  check('Fit: Dorian licks fit a Dorian vamp', fit('dorian-iv', 'E', 'dorian', 'funk', ['i7', 'IV7', 'i7', 'IV7']), 'good@2');
+  check('Fit: “anywhere” licks pick the bar where they fit best', /^good@/.test(fit('aeolian-bvi', 'A', 'minor', 'pop', ['i', 'bVI', 'bIII', 'bVII'])), true);
+  check('At least 95 licks across styles', LK.LICKS.length >= 95 && new Set(LK.LICKS.flatMap((l) => l.styles)).size >= 14, true);
   check('Bad notation is reported', (() => { try { LK.parseLine('9:1'); return false; } catch (e) { return true; } })(), true);
 }
 

@@ -165,7 +165,7 @@
       if (opts.degrees && opts.degrees[n.k]) {
         const dg = opts.degrees[n.k];
         const stack = sorted.filter((o) => o.t === n.t && o.s < n.s).length;
-        body += `<text class="tb-deg${dg.ct ? ' ct' : ''}" data-k="${n.k}" x="${x}" y="${top + staffH + 15 + stack * 10}" text-anchor="middle">${esc(dg.label)}</text>`;
+        body += `<text class="tb-deg${dg.cls ? ' ' + dg.cls : dg.ct ? ' ct' : ''}" data-k="${n.k}" x="${x}" y="${top + staffH + 15 + stack * 10}" text-anchor="middle">${esc(dg.label)}</text>`;
       }
       prevOn[n.s] = { x, f: n.f };
     }
