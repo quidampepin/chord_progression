@@ -3,6 +3,7 @@
   'use strict';
   const S = {
     en: {
+      moreProjects: 'More projects by David Pépin',
       tagline: 'Chord progressions that make musical sense, with voicings for guitar and piano.',
       key: 'Key', mode: 'Mode', style: 'Style', length: 'Length', bars: 'bars', color: 'Colour', ending: 'Ending',
       adventure: 'Familiar ↔ Adventurous', familiar: 'Familiar', adventurous: 'Adventurous',
@@ -133,6 +134,7 @@
       },
     },
     fr: {
+      moreProjects: 'Autres projets de David Pépin',
       tagline: 'Des progressions d’accords qui ont du sens musical, avec des doigtés pour guitare et piano.',
       key: 'Tonalité', mode: 'Mode', style: 'Style', length: 'Longueur', bars: 'mesures', color: 'Couleur', ending: 'Fin',
       adventure: 'Familier ↔ Audacieux', familiar: 'Familier', adventurous: 'Audacieux',

@@ -243,6 +243,7 @@
   function renderControls() {
     document.documentElement.lang = state.lang;
     $$('[data-i18n]').forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+    $('#home-link').href = state.lang === 'fr' ? 'https://www.davidpepin.ca/projets/' : 'https://www.davidpepin.ca/projects/';
     const style = G.STYLES[state.style];
     fillSelect($('#key'), Array.from({ length: 12 }, (_, pc) => [pc, nn(T.tonicFor(pc, state.mode))]), state.tonic);
     fillSelect($('#mode'), style.modes.map((m) => [m, tr('modes.' + m)]), state.mode);
