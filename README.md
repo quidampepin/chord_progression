@@ -1,6 +1,19 @@
 # Cadence — chord progression generator
 
+A chord progression generator for songwriters and guitarists: 16 styles, 7 modes, guitar (13 tunings), ukulele and piano voicings, scales and licks to play over the progression, playback and MIDI export. English and French.
+
+**Use it online:** https://www.davidpepin.ca/chord_progression/  
+*En français :* générateur de progressions d'accords bilingue. Changez la langue dans l'application.
+
+## Run it locally
+
 Open `index.html` in a browser (double-click works, no server needed).
+
+## Credits
+
+Idea, direction and testing: David Pépin. Coded with Claude (Anthropic). Part of [davidpepin.ca/projects](https://www.davidpepin.ca/projects/).
+
+The published page loads Google Analytics (page views only, same property as davidpepin.ca). The tag only runs on davidpepin.ca, not when you open the file locally.
 
 ## How it's built
 
