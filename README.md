@@ -11,7 +11,7 @@ Open `index.html` in a browser (double-click works, no server needed).
 
 ## Credits
 
-Idea, direction and testing: David Pépin. Coded with Claude (Anthropic). Part of [davidpepin.ca/projects](https://www.davidpepin.ca/projects/).
+Idea, direction and testing: David Pepin. Coded with Claude (Anthropic). Part of [davidpepin.ca/projects](https://www.davidpepin.ca/projects/).
 
 The published page loads Google Analytics (page views only, same property as davidpepin.ca). The tag only runs on davidpepin.ca, not when you open the file locally.
 
